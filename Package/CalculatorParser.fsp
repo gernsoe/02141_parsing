@@ -4,24 +4,38 @@ open CalculatorTypesAST
 %}
 
 // Declare the tokens (terminal symbols)
-%token <float> NUM
-%token TIMES DIV PLUS MINUS POW LPAR RPAR EOF SQRT
+%token <int> INT
+%token <string> STRING
+%token <char> CHAR
+%token AINDEX PLUS MINUS TIMES DIV POW 
+%token AND1 AND2 OR1 OR2 NOT EQ NEQ GT GE LT LE 
+%token ASSIGNX ASSIGNA SKIP NEXT IF DO 
+%token CONDITION ELSEIF
+%token <bool> TRUE FALSE
 // NOTE: the actual formats of these tokens are defined in the lexer file
 //       as regular expressions
 
 // Specify precedence and associativity of operators
 // Precedence is given by the order (from low to high)
+%right ELSEIF NEXT
 %right POW
+%left OR1 OR2
+%left AND1 AND2
+%left NOT
 %left PLUS MINUS
 %left TIMES DIV
-%left SQRT
+
 
 // We declare the initial non-terminal symbol
 %start start
 
 // We specify the return type of each of then non-terminal symbols
-%type <expr> start
-%type <expr> expression
+%type <C> start
+%type <GC> GC
+%type <a> a
+%type <b> b
+%type <x> x
+
 
 // Grammar productions
 %%

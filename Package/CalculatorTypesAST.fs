@@ -4,7 +4,6 @@
 module GCL_AST
 
 type x =
-    | xInt of int
     | xString of string
     | xChar of char
 
@@ -38,7 +37,7 @@ type C =
   | AssignX of (x * a)
   | AssignA of (a * a)
   | Skip of string
-  | GoNext of (C * C)
+  | Next of (C * C)
   | Iffi of GC
   | Dood of GC
 and GC =
