@@ -22,8 +22,8 @@ type b =
     | And2Expr of (b * b)
     | Or2Expr of (b * b)
     | NotExpr of b
-    | EquExpr of (a * a)
-    | NequExpr of (a * a)
+    | EqExpr of (a * a)
+    | NeqExpr of (a * a)
     | Gt of (a * a)
     | Ge of (a * a)
     | Lt of (a * a)
