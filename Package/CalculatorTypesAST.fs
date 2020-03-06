@@ -3,13 +3,9 @@
 // to store represent arithmetic expressions
 module GCL_AST
 
-type x =
-    | xString of string
-    | xChar of char
-
 type a =
     | n of int
-    | X of x
+    | x of string
     | A of array<a>
     | PlusExpr of (a * a)
     | MinusExpr of (a * a)
@@ -19,8 +15,8 @@ type a =
     | PowExpr of (a * a)
 
 type b =
-    | True of bool
-    | False of bool
+    | True
+    | False 
     | And1Expr of (b * b)
     | Or1Expr of (b * b)
     | And2Expr of (b * b)
@@ -34,7 +30,7 @@ type b =
     | Le of (a * a)
 
 type C =
-  | AssignX of (x * a)
+  | AssignX of (string * a)
   | AssignA of (a * a)
   | Skip of string
   | Next of (C * C)
