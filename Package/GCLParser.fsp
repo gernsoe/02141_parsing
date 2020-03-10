@@ -1,12 +1,12 @@
 // Open the file that defines the type "expr" we shall use as AST
 %{
-open CalculatorTypesAST
+open GCLTypesAST
 %}
 
 // Declare the tokens (terminal symbols)
 %token <int> INT
 %token <string> STRING
-%token  PLUS MINUS TIMES DIV POW 
+%token PLUS MINUS TIMES DIV POW 
 %token AND1 AND2 OR1 OR2 NOT EQ NEQ GT GE LT LE LPAR RPAR LSPAR RSPAR EOF
 %token ASSIGN SKIP NEXT IF FI DO OD 
 %token CONDITION ELSEIF
@@ -31,7 +31,7 @@ open CalculatorTypesAST
 %start start
 
 // We specify the return type of each of then non-terminal symbols
-%type <start> start
+%type <C> start
 %type <C> command
 %type <GC> guarded
 %type <a> arithmetic
@@ -44,7 +44,7 @@ open CalculatorTypesAST
 // The first production in "formal" notation is
 // start -> expression
 // here written:
-start: Command EOF             { $1 }
+start: command EOF             { $1 }
 
 // Note that we need to insert an End-Of-File (EOF)
 // The code annotation { $1 } specifies that parsing with this production
@@ -56,7 +56,7 @@ start: Command EOF             { $1 }
 command:
 	| STRING ASSIGN arithmetic		{ AssignX($1,$3) }
 	| arithmetic ASSIGN arithmetic	{ AssignA($1,$3) }
-	| SKIP							{ Skip($1) }
+	| SKIP							{ Skip }
 	| command NEXT command			{ Next($1,$3) }
 	| IF guarded FI					{ Iffi($2) }
 	| DO guarded OD					{ Dood($2) }
@@ -66,8 +66,8 @@ guarded:
 	| guarded ELSEIF guarded		{ ElseIfExpr($1,$3) }
 
 arithmetic:
-	| INT                           { n($1) }
-	| STRING						{ x($1) }
+	| INT                           { N($1) }
+	| STRING						{ X($1) }
 	| STRING LSPAR arithmetic RSPAR	{ A($3) }
 	| arithmetic PLUS arithmetic    { PlusExpr($1,$3) }
 	| arithmetic MINUS arithmetic   { MinusExpr($1,$3) }
@@ -78,8 +78,8 @@ arithmetic:
 	| LPAR arithmetic RPAR          { $2 }
 
 boolean:
-	| TRUE							{ True($1) }
-	| FALSE							{ False($1) }
+	| TRUE							{ True }
+	| FALSE							{ False }
 	| boolean AND1 boolean			{ And1Expr($1,$3) }
 	| boolean OR1 boolean			{ Or1Expr($1,$3) }
 	| boolean AND2 boolean			{ And2Expr($1,$3) }

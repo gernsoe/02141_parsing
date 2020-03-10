@@ -1,17 +1,17 @@
 // The generated lexer module will start with this code
 {
-module CalculatorLexer
+module GCLLexer
 open FSharp.Text.Lexing
 open System
 // open the module that defines the tokens
-open CalculatorParser
+open GCLParser
 }
 
 // We define macros for some regular expressions we will use later
 let digit       = ['0'-'9']
 let num         = digit+ //( '.' digit+)?  ('E' ('+'|'-')? digit+ )?
-let string		= ['a'-'z''A'-'Z']['a'-'z''A'-'Z' digit_]
-let whitespace  = ['\u00A0' '\n' '\r' '\t']
+let string      = ['a'-'z''A'-'Z']['a'-'z''A'-'Z' '0'-'9' '_']*
+let whitespace  = ['\u00A0' '\n' '\r' '\t' ' ']
 
 // We define now the rules for recognising and building tokens
 // for each of the tokens of our language we need a rule
@@ -24,7 +24,7 @@ rule tokenize = parse
 //| newline       { lexbuf.EndPos <- lexbuf.EndPos.NextLine; tokenize lexbuf; }
 
 // deal with tokens that need to be built
-| num           { INT(Int.Parse(LexBuffer<_>.LexemeString lexbuf)) }
+| num           { INT(Int32.Parse(LexBuffer<_>.LexemeString lexbuf)) }
 | string		{ STRING(LexBuffer<_>.LexemeString lexbuf)}
 | '*'           { TIMES }
 | '/'           { DIV }
@@ -56,4 +56,5 @@ rule tokenize = parse
 | ']'			{ RSPAR }
 | "true"		{ TRUE }
 | "false"		{ FALSE }
+| "skip"		{ SKIP }
 | eof           { EOF }

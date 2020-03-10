@@ -1,12 +1,12 @@
 
 // This file implements a module where we define a data type "expr"
 // to store represent arithmetic expressions
-module GCL_AST
+module GCLTypesAST
 
 type a =
-    | n of int
-    | x of string
-    | A of array<a>
+    | N of int
+    | X of string
+    | A of a 
     | PlusExpr of (a * a)
     | MinusExpr of (a * a)
     | TimesExpr of (a * a)
@@ -16,7 +16,7 @@ type a =
 
 type b =
     | True
-    | False 
+    | False
     | And1Expr of (b * b)
     | Or1Expr of (b * b)
     | And2Expr of (b * b)
@@ -32,7 +32,7 @@ type b =
 type C =
   | AssignX of (string * a)
   | AssignA of (a * a)
-  | Skip of string
+  | Skip
   | Next of (C * C)
   | Iffi of GC
   | Dood of GC
