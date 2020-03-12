@@ -19,12 +19,23 @@ open GCLTypesAST
 %right ELSEIF NEXT
 %right POW
 
-%left OR1 OR2
+%left DO
+%right OD
+%left IF 
+%right FI 
+%left CONDITION
+%left OR1 OR2 
 %left AND1 AND2
 %left NOT
+%left EQ NEQ GT GE LT LE
+%left LPAR
+%right RPAR
 
+%left ASSIGN
 %left PLUS MINUS
 %left TIMES DIV
+%right RSPAR
+%left LSPAR
 
 
 // We declare the initial non-terminal symbol

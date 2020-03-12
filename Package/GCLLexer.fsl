@@ -11,7 +11,8 @@ open GCLParser
 let digit       = ['0'-'9']
 let num         = digit+ //( '.' digit+)?  ('E' ('+'|'-')? digit+ )?
 let string      = ['a'-'z''A'-'Z']['a'-'z''A'-'Z' '0'-'9' '_']*
-let whitespace  = ['\u00A0' '\n' '\r' '\t' ' ']
+let whitespace  = ['\u00A0' '\t' ' ']
+let newline 	= "\n\r" | '\n' | '\r'
 
 // We define now the rules for recognising and building tokens
 // for each of the tokens of our language we need a rule
@@ -21,9 +22,12 @@ rule tokenize = parse
 
 // deal with tokens that need to be ignored (skip them)
 | whitespace    { tokenize lexbuf }
-//| newline       { lexbuf.EndPos <- lexbuf.EndPos.NextLine; tokenize lexbuf; }
+| newline       { lexbuf.EndPos <- lexbuf.EndPos.NextLine; tokenize lexbuf; }
 
 // deal with tokens that need to be built
+| "true"		{ TRUE }
+| "false"		{ FALSE }
+| "skip"		{ SKIP }
 | num           { INT(Int32.Parse(LexBuffer<_>.LexemeString lexbuf)) }
 | string		{ STRING(LexBuffer<_>.LexemeString lexbuf)}
 | '*'           { TIMES }
@@ -54,7 +58,4 @@ rule tokenize = parse
 | " od"			{ OD }
 | '['			{ LSPAR }
 | ']'			{ RSPAR }
-| "true"		{ TRUE }
-| "false"		{ FALSE }
-| "skip"		{ SKIP }
 | eof           { EOF }
