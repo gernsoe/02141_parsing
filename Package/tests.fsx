@@ -44,15 +44,9 @@ let test3 = "y:=2;
              do false -> y:= x*y;
                        x:=x-1
              od"
-        
-// Error expected
-let test4 = "y:=2;
-             do x>0 -> y:= x*y;
-                       x:=x-1 
-                          "
 
 // Expected to be recognized
-let test5 = "x:=2;
+let test4 = "x:=2;
             if true && !false -> x:= (((x*2)/2)+2-2)^2 
             [] x != 2 -> x:= 2; A[x] := 1 fi"
 
@@ -72,5 +66,4 @@ compute test1
 compute test2
 compute test3
 compute test4
-compute test5
 
