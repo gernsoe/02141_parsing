@@ -12,9 +12,10 @@ open GCLParser
 open GCLLexer
 
 let nodeShape = 
-    [|
-    "diagraph program_graph {rankdir=LR;" ; "node [shape = circle]; q▷;" ; "node [shape = doublecircle]; q◀;" ; "node [shape = circle]"
-    |]
+    "diagraph program_graph {rankdir=LR; \n" +
+    "node [shape = circle]; q▷; \n" +
+    "node [shape = doublecircle]; q◀; \n" +
+    "node [shape = circle]"
 
 let rec aEval a =
   match a with
@@ -35,7 +36,7 @@ and bEval b =
        | Or1Expr(x,y) -> bEval(x) + "|" + bEval (y)
        | And2Expr(x,y) -> bEval(x) + "&&" + bEval (y)
        | Or2Expr(x,y) -> bEval(x) + "||" + bEval (y)
-       | NotExpr(x) -> "!" + bEval(x)
+       | NotExpr(x) -> "!(" + bEval(x) + ")"
        | EqExpr(x,y) -> aEval(x) + "=" + aEval (y)
        | NeqExpr(x,y) -> aEval(x) + "!=" + aEval (y)
        | Gt(x,y) -> aEval(x) + ">" + aEval (y)
@@ -43,13 +44,30 @@ and bEval b =
        | Lt(x,y) -> aEval(x) + "<" + aEval (y)
        | Le(x,y) -> aEval(x) + "<=" + aEval (y)
 
+let rec dEval gc = 
+    match gc with 
+        | Condition(b, c) -> bEval(NotExpr(b))
+        | ElseIfExpr(gc1, gc2) -> dEval(gc1) + "&" + dEval(gc2)
 
-       (*
-       let rec edgeProduction (qstart, qslut) e =
-           match e with
-               | AssignX(s, a) -> qstart s:=aEval(a) qslut
+
+let mutable counter = 0;      
+let rec cEval start slut c =
+    match c with
+        | AssignX(s, a) -> "q" + start + " -> q" + slut + "[label = \"" + s + ":=" + aEval(a) + "\"];"
+        | AssignA(a1, a2) -> "q" + start + " -> q" + slut + "[label = \"" + aEval(a1) + ":=" + aEval(a2) + "\"];"
+        | Skip -> "q" + start + " -> q" + slut + "[label = \"skip\"];"
+        | Next(c1, c2) -> counter <- counter + 1
+                          cEval start (counter.ToString()) c1  + "\n" + cEval (counter.ToString()) slut c2
+        | Iffi(x) -> gcEval start slut x
+        | Dood(x) -> gcEval start start x + "\n" + "q" + start + " -> q" + slut + "[label = \"" + dEval(x) + "\"];"
+and gcEval start slut gc =
+    match gc with
+        | Condition(b, c) -> counter <- counter + 1
+                             match (start, slut) with
+                                | ("▷",_) -> ("q▷ -> q" + counter.ToString() + "[label = \"" + bEval(b) + "\"]; \n" + cEval (counter.ToString()) slut c )
+                                | (_,_) -> ("q" + start + " -> q" + counter.ToString() + "[label = \"" + bEval(b) + "\"]; \n" + cEval (counter.ToString()) slut c )
+        | ElseIfExpr(gc1, gc2) -> gcEval start slut gc1 + "\n" + gcEval start slut gc2
        
-       *)
 
 
 
@@ -86,5 +104,9 @@ let rec compute =
         // and print the result of evaluating it
         printfn "Grammar recognized" 
 
+        printfn "%s" nodeShape 
+        printfn "%s \n}" (cEval "▷" "◀" expression)
+
 // Start interacting with the user
 compute
+
