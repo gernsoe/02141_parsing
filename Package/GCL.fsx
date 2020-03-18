@@ -1,4 +1,4 @@
-// This script implements our interactive parser
+﻿// This script implements our interactive parser
 
 // We need to import a couple of modules, including the generated lexer and parser
 #r "FsLexYacc.Runtime.dll"
@@ -10,6 +10,48 @@ open GCLTypesAST
 open GCLParser
 #load "GCLLexer.fs"
 open GCLLexer
+
+let nodeShape = 
+    [|
+    "diagraph program_graph {rankdir=LR;" ; "node [shape = circle]; q▷;" ; "node [shape = doublecircle]; q◀;" ; "node [shape = circle]"
+    |]
+
+let rec aEval a =
+  match a with
+    | N(x) -> (string) x
+    | X(s) -> s
+    | A(x) -> "A[" + aEval(x) + "]"
+    | TimesExpr(x,y) -> aEval(x) +  "*" + aEval (y)
+    | DivExpr(x,y) -> aEval(x) + "/" + aEval (y)
+    | PlusExpr(x,y) -> aEval(x) + "+" + aEval (y)
+    | MinusExpr(x,y) -> aEval(x) + "-" + aEval (y)
+    | PowExpr(x,y) -> aEval(x) + "^" + aEval (y)
+    | UMinusExpr(x) -> "-" + aEval(x)
+and bEval b = 
+    match b with
+       | True -> "true"
+       | False -> "false"
+       | And1Expr(x,y) -> bEval(x) +  "&" + bEval (y)
+       | Or1Expr(x,y) -> bEval(x) + "|" + bEval (y)
+       | And2Expr(x,y) -> bEval(x) + "&&" + bEval (y)
+       | Or2Expr(x,y) -> bEval(x) + "||" + bEval (y)
+       | NotExpr(x) -> "!" + bEval(x)
+       | EqExpr(x,y) -> aEval(x) + "=" + aEval (y)
+       | NeqExpr(x,y) -> aEval(x) + "!=" + aEval (y)
+       | Gt(x,y) -> aEval(x) + ">" + aEval (y)
+       | Ge(x,y) -> aEval(x) + ">=" + aEval (y)
+       | Lt(x,y) -> aEval(x) + "<" + aEval (y)
+       | Le(x,y) -> aEval(x) + "<=" + aEval (y)
+
+
+       (*
+       let rec edgeProduction (qstart, qslut) e =
+           match e with
+               | AssignX(s, a) -> qstart s:=aEval(a) qslut
+       
+       *)
+
+
 
 // We
 let parse lexbuf =
