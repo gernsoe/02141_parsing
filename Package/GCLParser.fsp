@@ -86,7 +86,7 @@ arithmetic:
 	| arithmetic DIV arithmetic     { DivExpr($1,$3) }
 	| MINUS arithmetic              { UMinusExpr($2) }
 	| arithmetic POW arithmetic     { PowExpr($1,$3) }
-	| LPAR arithmetic RPAR          { $2 }
+	| LPAR arithmetic RPAR          { ParaA($2) }
 
 boolean:
 	| TRUE							{ True }
@@ -102,5 +102,6 @@ boolean:
 	| arithmetic GE arithmetic		{ Ge($1,$3) }
 	| arithmetic LT arithmetic		{ Lt($1,$3) }
 	| arithmetic LE arithmetic		{ Le($1,$3) }
+	| LPAR boolean RPAR				{ ParaB($2) }
 
 %%

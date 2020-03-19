@@ -13,6 +13,7 @@ type a =
     | DivExpr of (a * a)
     | UMinusExpr of (a)
     | PowExpr of (a * a)
+    | ParaA of a
 
 type b =
     | True
@@ -28,6 +29,7 @@ type b =
     | Ge of (a * a)
     | Lt of (a * a)
     | Le of (a * a)
+    | ParaB of b
 
 type C =
   | AssignX of (string * a)

@@ -1,4 +1,6 @@
-﻿// This script implements our interactive parser
+﻿open System.IO
+
+// This script implements our interactive parser
 
 // We need to import a couple of modules, including the generated lexer and parser
 #r "FsLexYacc.Runtime.dll"
@@ -12,7 +14,7 @@ open GCLParser
 open GCLLexer
 
 let nodeShape = 
-    "diagraph program_graph {rankdir=LR; \n" +
+    "digraph program_graph {rankdir=LR; \n" +
     "node [shape = circle]; q▷; \n" +
     "node [shape = doublecircle]; q◀; \n" +
     "node [shape = circle]"
@@ -28,6 +30,7 @@ let rec aEval a =
     | MinusExpr(x,y) -> aEval(x) + "-" + aEval (y)
     | PowExpr(x,y) -> aEval(x) + "^" + aEval (y)
     | UMinusExpr(x) -> "-" + aEval(x)
+    | ParaA(x) -> "(" + aEval(x) + ")"
 and bEval b = 
     match b with
        | True -> "true"
@@ -43,11 +46,12 @@ and bEval b =
        | Ge(x,y) -> aEval(x) + ">=" + aEval (y)
        | Lt(x,y) -> aEval(x) + "<" + aEval (y)
        | Le(x,y) -> aEval(x) + "<=" + aEval (y)
+       | ParaB(x) -> "(" + bEval(x) + ")"
 
 let rec dEval gc = 
     match gc with 
-        | Condition(b, c) -> bEval(NotExpr(b))
-        | ElseIfExpr(gc1, gc2) -> dEval(gc1) + "&" + dEval(gc2)
+        | Condition(b, c) -> bEval(b)
+        | ElseIfExpr(gc1, gc2) -> dEval(gc1) + "&" + dEval(gc2) 
 
 
 let mutable counter = 0;      
@@ -59,7 +63,7 @@ let rec cEval start slut c =
         | Next(c1, c2) -> counter <- counter + 1
                           cEval start (counter.ToString()) c1  + "\n" + cEval (counter.ToString()) slut c2
         | Iffi(x) -> gcEval start slut x
-        | Dood(x) -> gcEval start start x + "\n" + "q" + start + " -> q" + slut + "[label = \"" + dEval(x) + "\"];"
+        | Dood(x) -> gcEval start start x + "\n" + "q" + start + " -> q" + slut + "[label = \"!(" + dEval(x) + ")\"];"
 and gcEval start slut gc =
     match gc with
         | Condition(b, c) -> counter <- counter + 1
@@ -67,8 +71,25 @@ and gcEval start slut gc =
                                 | ("▷",_) -> ("q▷ -> q" + counter.ToString() + "[label = \"" + bEval(b) + "\"]; \n" + cEval (counter.ToString()) slut c )
                                 | (_,_) -> ("q" + start + " -> q" + counter.ToString() + "[label = \"" + bEval(b) + "\"]; \n" + cEval (counter.ToString()) slut c )
         | ElseIfExpr(gc1, gc2) -> gcEval start slut gc1 + "\n" + gcEval start slut gc2
-       
 
+let mutable fix = "";
+let rec cDEval start slut c d =
+    match c with
+        | AssignX(s, a) -> "q" + start + " -> q" + slut + "[label = \"" + s + ":=" + aEval(a) + "\"];"
+        | AssignA(a1, a2) -> "q" + start + " -> q" + slut + "[label = \"" + aEval(a1) + ":=" + aEval(a2) + "\"];"
+        | Skip -> "q" + start + " -> q" + slut + "[label = \"skip\"];"
+        | Next(c1, c2) -> counter <- counter + 1
+                          cDEval start (counter.ToString()) c1 d + "\n" + cDEval (counter.ToString()) slut c2 d
+        | Iffi(x) -> gcDEval start slut x d
+        | Dood(x) -> gcDEval start start x d + "\n" + "q" + start + " -> q" + slut + "[label = \"!(" + dEval(x) + "|" + d + ")\"];"
+and gcDEval start slut gc d =
+    match gc with
+        | Condition(b, c) -> fix <- bEval(b) + "|" + d
+                             counter <- counter + 1
+                             match (start, slut) with
+                                | ("▷",_) -> ("q▷ -> q" + counter.ToString() + "[label = \"(" + bEval(b) + ")&!(" + d +  ")\"]; \n" + cDEval (counter.ToString()) slut c d) 
+                                | (_,_) -> ("q" + start + " -> q" + counter.ToString() + "[label = \"(" + bEval(b) + ")&!(" + d + ")\"]; \n" + cDEval (counter.ToString()) slut c d)
+        | ElseIfExpr(gc1, gc2) -> gcDEval start slut gc1 d + "\n" + gcDEval start slut gc2 (fix)
 
 
 // We
@@ -103,9 +124,19 @@ let rec compute =
         let expression = parse lexbuf 
         // and print the result of evaluating it
         printfn "Grammar recognized" 
+        
+        File.WriteAllText("NFA.gv", nodeShape + "\n" + (cEval "▷" "◀" expression + "\n}"))
+        counter <- 0
+        File.WriteAllText("DFA.gv", nodeShape + "\n" + (cDEval "▷" "◀" expression "false" + "\n}"))
 
-        printfn "%s" nodeShape 
-        printfn "%s \n}" (cEval "▷" "◀" expression)
+        (*
+               printfn "%s" nodeShape 
+               printfn "%s \n}" (cEval "▷" "◀" expression)
+
+               printfn "%s" nodeShape 
+               printfn "%s \n}" (cDEval "▷" "◀" expression "false")
+        *)
+       
 
 // Start interacting with the user
 compute

@@ -1,0 +1,14 @@
+diagraph program_graph {rankdir=LR; 
+node [shape = circle]; q▷; 
+node [shape = doublecircle]; q◀; 
+node [shape = circle]
+q▷ -> q1[label = "i:=0"];
+q1 -> q2[label = "i<5"]; 
+q2 -> q3[label = "x>0"]; 
+q3 -> q1[label = "i:=i+1"];
+q2 -> q4[label = "x=2"]; 
+q4 -> q1[label = "i:=i+2"];
+q2 -> q5[label = "x=3"]; 
+q5 -> q1[label = "i:=i+3"];
+q1 -> q◀[label = "!(i<5)"];
+}
