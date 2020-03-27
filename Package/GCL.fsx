@@ -6,12 +6,13 @@
 #r "FsLexYacc.Runtime.dll"
 open FSharp.Text.Lexing
 open System
-#load "GCLTypesAST.fs"
-open GCLTypesAST
 #load "GCLParser.fs"
 open GCLParser
 #load "GCLLexer.fs"
 open GCLLexer
+#load "GCLTypesAST.fs"
+open GCLTypesAST
+
 
 let nodeShape = 
     "digraph program_graph {rankdir=LR; \n" +
@@ -50,8 +51,8 @@ and bEval b =
 
 let rec dEval gc = 
     match gc with 
-        | Condition(b, c) -> bEval(b)
-        | ElseIfExpr(gc1, gc2) -> dEval(gc1) + "&" + dEval(gc2) 
+        | Condition(b, c) -> b
+        | ElseIfExpr(gc1, gc2) -> And1Expr(dEval(gc1),dEval(gc2))
 
 
 let mutable counter = 0;      
@@ -63,7 +64,7 @@ let rec cEval start slut c =
         | Next(c1, c2) -> counter <- counter + 1
                           cEval start (counter.ToString()) c1  + "\n" + cEval (counter.ToString()) slut c2
         | Iffi(x) -> gcEval start slut x
-        | Dood(x) -> gcEval start start x + "\n" + "q" + start + " -> q" + slut + "[label = \"!(" + dEval(x) + ")\"];"
+        | Dood(x) -> gcEval start start x + "\n" + "q" + start + " -> q" + slut + "[label = \"!(" + bEval(dEval(x)) + ")\"];"
 and gcEval start slut gc =
     match gc with
         | Condition(b, c) -> counter <- counter + 1
@@ -75,21 +76,21 @@ and gcEval start slut gc =
 let mutable fix = "";
 let rec cDEval start slut c d =
     match c with
-        | AssignX(s, a) -> "q" + start + " -> q" + slut + "[label = \"" + s + ":=" + aEval(a) + "\"];"
-        | AssignA(a1, a2) -> "q" + start + " -> q" + slut + "[label = \"" + aEval(a1) + ":=" + aEval(a2) + "\"];"
-        | Skip -> "q" + start + " -> q" + slut + "[label = \"skip\"];"
+        | AssignX(s, a) -> [("q" + start, s + ":=" + aEval(a) , "q" + slut)] //  "q" + start + " -> q" + slut + "[label = \"" + s + ":=" + aEval(a) + "\"];"
+        | AssignA(a1, a2) -> [("q" + start, aEval(a1) + ":=" + aEval(a2), "q" + slut)]//"q" + start + " -> q" + slut + "[label = \"" + aEval(a1) + ":=" + aEval(a2) + "\"];"
+        | Skip -> [("q" + start, "skip", "q" + slut)] // "q" + start + " -> q" + slut + "[label = \"skip\"];"
         | Next(c1, c2) -> counter <- counter + 1
-                          cDEval start (counter.ToString()) c1 d + "\n" + cDEval (counter.ToString()) slut c2 d
+                          cDEval start (counter.ToString()) c1 d @ cDEval (counter.ToString()) slut c2 d
         | Iffi(x) -> gcDEval start slut x d
-        | Dood(x) -> gcDEval start start x d + "\n" + "q" + start + " -> q" + slut + "[label = \"!(" + dEval(x) + "|" + d + ")\"];"
+        | Dood(x) -> gcDEval start start x d @ [("q"+start, bEval(NotExpr(Or1Expr(dEval(x),d))) , "q"+slut )]//+ "\n" + "q" + start + " -> q" + slut + "[label = \"!(" + dEval(x) + "|" + d + ")\"];"
 and gcDEval start slut gc d =
     match gc with
-        | Condition(b, c) -> fix <- bEval(b) + "|" + d
+        | Condition(b, c) -> fix <- bEval(Or1Expr(b,d))
                              counter <- counter + 1
                              match (start, slut) with
-                                | ("▷",_) -> ("q▷ -> q" + counter.ToString() + "[label = \"(" + bEval(b) + ")&!(" + d +  ")\"]; \n" + cDEval (counter.ToString()) slut c d) 
-                                | (_,_) -> ("q" + start + " -> q" + counter.ToString() + "[label = \"(" + bEval(b) + ")&!(" + d + ")\"]; \n" + cDEval (counter.ToString()) slut c d)
-        | ElseIfExpr(gc1, gc2) -> gcDEval start slut gc1 d + "\n" + gcDEval start slut gc2 (fix)
+                                | ("▷",_) -> ("q▷", bEval(And1Expr(ParaB(b),NotExpr(d))) ,"q"+counter.ToString())::cDEval (counter.ToString()) slut c d //("q▷ -> q" + counter.ToString() + "[label = \"(" + bEval(b) + ")&!(" + d +  ")\"]; \n" + cDEval (counter.ToString()) slut c d) 
+                                | (_,_) ->  ("q"+start, bEval(And1Expr(ParaB(b),NotExpr(d))) ,"q"+counter.ToString())::cDEval (counter.ToString()) slut c d //("q" + start + " -> q" + counter.ToString() + "[label = \"(" + bEval(b) + ")&!(" + d + ")\"]; \n" + cDEval (counter.ToString()) slut c d)
+        | ElseIfExpr(gc1, gc2) -> gcDEval start slut gc1 d @ gcDEval start slut gc2 (fix)
 
 
 // We
