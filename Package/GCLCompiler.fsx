@@ -4,18 +4,22 @@
 
 // We need to import a couple of modules, including the generated lexer and parser
 #r "FsLexYacc.Runtime.dll"
-open FSharp.Text.Lexing
-open System
 #load "GCLTypesAST.fs"
 open GCLTypesAST
+open FSharp.Text.Lexing
+open System
 #load "GCLParser.fs"
 open GCLParser
 #load "GCLLexer.fs"
 open GCLLexer
 
 
+
 let nodeShape = 
-    ["digraph program_graph {rankdir=LR; \n" + "node [shape = circle]; q▷; \n" + "node [shape = doublecircle]; q◀; \n" + "node [shape = circle]"];
+    ["digraph program_graph {rankdir=LR; \n" +
+     "node [shape = circle]; q▷; \n" +
+     "node [shape = doublecircle]; q◀; \n" +
+     "node [shape = circle]"];
 
 let rec aEval a =
   match a with
@@ -90,36 +94,9 @@ and gcDEval start slut gc d =
         | ElseIfExpr(gc1, gc2) -> gcDEval start slut gc1 d @ gcDEval start slut gc2 (fix)
 
 
-// We
-let parse lexbuf =
-    // translate the buffer into a stream of tokens and parse them
-    let res =   try
-                GCLParser.start GCLLexer.tokenize lexbuf
-                with err -> 
-                // Get last position before lexer error
-                let pos = lexbuf.EndPos 
-
-                // Show line number and character position
-                let exactPos = sprintf "[Line: %d, Character: %d]" (pos.Line) (pos.Column) 
-
-                // Get the expression that caused the error
-                let lastExpression = String(lexbuf.Lexeme)  
-
-                // Print the error message
-                let message = sprintf "%s | Grammer not recognize at: %s \nLook at the expression: '%s'" err.Message exactPos lastExpression 
-                printfn "%s" message     //throw exception here
-                exit 1
-    // return the result of parsing (i.e. value of type "expr")
-    res
-    
 // We implement here the function that interacts with the user
-let rec compute =
-        printf "Enter an expression: "
-        // translate string into a buffer of characters
-        let lexbuf = LexBuffer<_>.FromString (Console.ReadLine())
+let rec compute expression =
 
-        // Gonna be used for a future pretty printer functionality
-        let expression = parse lexbuf
         let edgeList = cDEval "▷" "◀" expression False
         let edgeString = List.map (fun(qstart,act,qslut) -> qstart + " -> " + qslut + "[label = \"" + act + "\"];" ) edgeList
 
@@ -129,17 +106,6 @@ let rec compute =
         
         //File.WriteAllText("NFA.gv", nodeShape + "\n" + (cEval "▷" "◀" expression + "\n}"))
         counter <- 0
-        File.WriteAllLines("DFA.gv", nodeShape @ edgeString)
+        File.WriteAllLines("DFA.gv", nodeShape @ edgeString @ ["}"])
 
-        (*
-               printfn "%s" nodeShape 
-               printfn "%s \n}" (cEval "▷" "◀" expression)
-
-               printfn "%s" nodeShape 
-               printfn "%s \n}" (cDEval "▷" "◀" expression "false")
-        *)
-       
-
-// Start interacting with the user
-compute
 

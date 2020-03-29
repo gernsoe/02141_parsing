@@ -4,6 +4,8 @@
 
 // We need to import a couple of modules, including the generated lexer and parser
 #r "FsLexYacc.Runtime.dll"
+#load "GCLTypesAST.fs"
+open GCLTypesAST
 open FSharp.Text.Lexing
 open System
 #load "GCLParser.fs"
@@ -13,8 +15,6 @@ open GCLLexer
 #load "GCLCompiler.fsx"
 open GCLCompiler
 
-
-// We
 let parse lexbuf =
     // translate the buffer into a stream of tokens and parse them
     let res =   try
@@ -35,29 +35,10 @@ let parse lexbuf =
                 exit 1
     // return the result of parsing (i.e. value of type "expr")
     res
-    
-// We implement here the function that interacts with the user
-let rec compute =
-        printf "Enter an expression: "
-        // translate string into a buffer of characters
-        let lexbuf = LexBuffer<_>.FromString (Console.ReadLine())
-
-        // Gonna be used for a future pretty printer functionality
-        let expression = parse lexbuf 
-        // and print the result of evaluating it
-        printfn "Grammar recognized" 
-        
-
-
-        (*
-               printfn "%s" nodeShape 
-               printfn "%s \n}" (cEval "▷" "◀" expression)
-
-               printfn "%s" nodeShape 
-               printfn "%s \n}" (cDEval "▷" "◀" expression "false")
-        *)
-       
+ 
 
 // Start interacting with the user
-compute
-
+printf "Enter an expression: "
+let lexbuf = LexBuffer<_>.FromString (Console.ReadLine());
+let expression = parse lexbuf
+compute expression
