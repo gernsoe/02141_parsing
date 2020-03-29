@@ -17,7 +17,7 @@ type a =
 
 type b =
     | True
-    | False
+    | False 
     | And1Expr of (b * b)
     | Or1Expr of (b * b)
     | And2Expr of (b * b)
