@@ -14,6 +14,8 @@ open GCLParser
 open GCLLexer
 #load "GCLCompiler.fsx"
 open GCLCompiler
+#load "GCLInterpreter.fsx"
+open GCLInterpreter
 
 let parse lexbuf =
     // translate the buffer into a stream of tokens and parse them
@@ -41,4 +43,6 @@ let parse lexbuf =
 printf "Enter an expression: "
 let lexbuf = LexBuffer<_>.FromString (Console.ReadLine());
 let expression = parse lexbuf
-compute expression
+let edgeList = computeCompiler expression
+//computeInterpreter edgeList
+

@@ -3,6 +3,6 @@
     "",
     "\\Package"
   ],
-  "SelectedNode": "\\Package\\GCLCompiler.fsx",
+  "SelectedNode": "\\Package\\GCLInterpreter.fsx",
   "PreviewInSolutionExplorer": false
 }
