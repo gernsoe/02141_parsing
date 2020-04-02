@@ -8,6 +8,10 @@
 open GCLTypesAST
 open FSharp.Text.Lexing
 open System
+#load "GCLParser.fs"
+open GCLParser
+#load "GCLLexer.fs"
+open GCLLexer
 
 type Expresion =
     | BExpression of b
@@ -53,6 +57,13 @@ let rec dEval gc =
         | Condition(b, c) -> b
         | ElseIfExpr(gc1, gc2) -> And1Expr(dEval(gc1),dEval(gc2))
 
+let rec expEval (exp: Expresion) =
+    match exp with
+        | CExpression(AssignX(s,a)) -> s + ":=" + aEval(a)
+        | CExpression(AssignA(a1,a2)) -> aEval(a1) + ":=" + aEval(a2)
+        | CExpression(Skip) -> "skip"
+        | BExpression b -> bEval(b)
+        | _ -> "";
 
 let mutable counter = 0;      
 let rec cEval start slut c =
@@ -75,42 +86,38 @@ and gcEval start slut gc =
 let mutable fix = False;
 let rec cDEval start slut c d =
     match c with
-        | AssignX(s, a) -> [("q" + start, CExpression(AssignX(s, a)) , "q" + slut)] //  "q" + start + " -> q" + slut + "[label = \"" + s + ":=" + aEval(a) + "\"];"
-        | AssignA(a1, a2) -> [("q" + start, CExpression(AssignA(a1,a2)), "q" + slut)]//"q" + start + " -> q" + slut + "[label = \"" + aEval(a1) + ":=" + aEval(a2) + "\"];"
-        | Skip -> [("q" + start, CExpression(Skip), "q" + slut)] // "q" + start + " -> q" + slut + "[label = \"skip\"];"
-        | Next(c1, c2) -> counter <- counter + 1
-                          cDEval start (counter.ToString()) c1 d @ cDEval (counter.ToString()) slut c2 d
-        | Iffi(x) -> gcDEval start slut x d
-        | Dood(x) -> gcDEval start start x d @ [("q"+start, BExpression(NotExpr(Or1Expr(dEval(x),d))) , "q"+slut )]//+ "\n" + "q" + start + " -> q" + slut + "[label = \"!(" + dEval(x) + "|" + d + ")\"];"
+        | CExpression(AssignX(s, a)) -> [("q" + start, CExpression(AssignX(s,a)) , "q" + slut)] //  "q" + start + " -> q" + slut + "[label = \"" + s + ":=" + aEval(a) + "\"];"
+        | CExpression(AssignA(a1, a2)) -> [("q" + start, CExpression(AssignA(a1,a2)), "q" + slut)]//"q" + start + " -> q" + slut + "[label = \"" + aEval(a1) + ":=" + aEval(a2) + "\"];"
+        | CExpression(Skip) -> [("q" + start, CExpression(Skip), "q" + slut)] // "q" + start + " -> q" + slut + "[label = \"skip\"];"
+        | CExpression(Next(c1, c2)) -> counter <- counter + 1
+                                       cDEval start (counter.ToString()) (CExpression(c1)) d @ cDEval (counter.ToString()) slut (CExpression(c2)) d
+        | CExpression(Iffi(x)) -> gcDEval start slut x d
+        | CExpression(Dood(x)) -> gcDEval start start x d @ [("q"+start, BExpression(NotExpr(Or1Expr(dEval(x),d))) , "q"+slut )]//+ "\n" + "q" + start + " -> q" + slut + "[label = \"!(" + dEval(x) + "|" + d + ")\"];"
+        | _ -> [];
+
 and gcDEval start slut gc d =
     match gc with
         | Condition(b, c) -> fix <- Or1Expr(b,d)
                              counter <- counter + 1
                              match (start, slut) with
-                                | ("▷",_) -> ("q▷", BExpression(And1Expr(ParaB(b),NotExpr(d))) ,"q"+counter.ToString())::cDEval (counter.ToString()) slut c d //("q▷ -> q" + counter.ToString() + "[label = \"(" + bEval(b) + ")&!(" + d +  ")\"]; \n" + cDEval (counter.ToString()) slut c d) 
-                                | (_,_) ->  ("q"+start, BExpression(And1Expr(ParaB(b),NotExpr(d))) ,"q"+counter.ToString())::cDEval (counter.ToString()) slut c d //("q" + start + " -> q" + counter.ToString() + "[label = \"(" + bEval(b) + ")&!(" + d + ")\"]; \n" + cDEval (counter.ToString()) slut c d)
+                                | ("▷",_) -> ("q▷", BExpression(And1Expr(ParaB(b),NotExpr(d))) ,"q"+counter.ToString())::cDEval (counter.ToString()) slut (CExpression(c)) d //("q▷ -> q" + counter.ToString() + "[label = \"(" + bEval(b) + ")&!(" + d +  ")\"]; \n" + cDEval (counter.ToString()) slut c d) 
+                                | (_,_) ->  ("q"+start, BExpression(And1Expr(ParaB(b),NotExpr(d))) ,"q"+counter.ToString())::cDEval (counter.ToString()) slut (CExpression(c)) d //("q" + start + " -> q" + counter.ToString() + "[label = \"(" + bEval(b) + ")&!(" + d + ")\"]; \n" + cDEval (counter.ToString()) slut c d)
         | ElseIfExpr(gc1, gc2) -> gcDEval start slut gc1 d @ gcDEval start slut gc2 (fix)
 
 
-let convertToGraphViz edgeList =
-    let edgeEval = List.map(fun(qstar, act, qslut) -> 
-    let edgeString = List.map (fun(qstart,act,qslut) -> qstart + " -> " + qslut + "[label = \"" + act + "\"];" ) edgeList
-
-    //File.WriteAllText("NFA.gv", nodeShape + "\n" + (cEval "▷" "◀" expression + "\n}"))
-    counter <- 0
-    File.WriteAllLines("DFA.gv", nodeShape @ edgeString @ ["}"])
-
-
 // We implement here the function that interacts with the user
-let computeCompiler expression =
+let rec compute (expression:GCLTypesAST.C) =
 
-        let edgeList = cDEval "▷" "◀" expression False
+        let edgeList = cDEval "▷" "◀" (CExpression expression) False
+        let edgeStringList = List.map(fun (qstart,act,qslut) -> (qstart, expEval act, qslut)) edgeList 
+        let edgeString = List.map (fun(qstart,act,qslut) -> qstart + " -> " + qslut + "[label = \"" + act + "\"];" ) edgeStringList
 
-        convertToGraphViz edgeList
+
         // and print the result of evaluating it
-        printfn "Grammar recognized"     
-
-
-
+        printfn "Grammar recognized" 
+        
+        //File.WriteAllText("NFA.gv", nodeShape + "\n" + (cEval "▷" "◀" expression + "\n}"))
+        counter <- 0
+        File.WriteAllLines("DFA.gv", nodeShape @ edgeString @ ["}"])
 
 
