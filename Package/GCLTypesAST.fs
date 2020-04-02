@@ -3,10 +3,14 @@
 // to store represent arithmetic expressions
 module GCLTypesAST
 
+open System
+
 type a =
     | N of int
     | X of string
-    | A of a 
+    | A of (string * a)
+    | Init of a
+    | Seq of (a * a)
     | PlusExpr of (a * a)
     | MinusExpr of (a * a)
     | TimesExpr of (a * a)
@@ -17,7 +21,7 @@ type a =
 
 type b =
     | True
-    | False 
+    | False
     | And1Expr of (b * b)
     | Or1Expr of (b * b)
     | And2Expr of (b * b)
@@ -33,7 +37,7 @@ type b =
 
 type C =
   | AssignX of (string * a)
-  | AssignA of (a * a)
+  | AssignA of (string * a * a)
   | Skip
   | Next of (C * C)
   | Iffi of GC

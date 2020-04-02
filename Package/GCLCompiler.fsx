@@ -13,10 +13,6 @@ open GCLParser
 #load "GCLLexer.fs"
 open GCLLexer
 
-type Expresion =
-    | BExpression of b
-    | CExpression of C
-
 let nodeShape = 
     ["digraph program_graph {rankdir=LR; \n" +
      "node [shape = circle]; q▷; \n" +
@@ -24,7 +20,7 @@ let nodeShape =
      "node [shape = circle]"];
 
 let rec aEval a =
-  match a with
+   match a with
     | N(x) -> (string) x
     | X(s) -> s
     | A(x) -> "A[" + aEval(x) + "]"
@@ -57,7 +53,7 @@ let rec dEval gc =
         | Condition(b, c) -> b
         | ElseIfExpr(gc1, gc2) -> And1Expr(dEval(gc1),dEval(gc2))
 
-let rec expEval (exp: Expresion) =
+let rec expEval (exp: Expression) =
     match exp with
         | CExpression(AssignX(s,a)) -> s + ":=" + aEval(a)
         | CExpression(AssignA(a1,a2)) -> aEval(a1) + ":=" + aEval(a2)
@@ -106,7 +102,7 @@ and gcDEval start slut gc d =
 
 
 // We implement here the function that interacts with the user
-let rec compute (expression:GCLTypesAST.C) =
+let compute expression =
 
         let edgeList = cDEval "▷" "◀" (CExpression expression) False
         let edgeStringList = List.map(fun (qstart,act,qslut) -> (qstart, expEval act, qslut)) edgeList 
@@ -120,4 +116,4 @@ let rec compute (expression:GCLTypesAST.C) =
         counter <- 0
         File.WriteAllLines("DFA.gv", nodeShape @ edgeString @ ["}"])
 
-
+        edgeList

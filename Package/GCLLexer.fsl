@@ -56,6 +56,7 @@ rule tokenize = parse
 | " fi"			{ FI }
 | "do "			{ DO }
 | " od"			{ OD }
+| "," 			{ COMMA }
 | '['			{ LSPAR }
 | ']'			{ RSPAR }
 | eof           { EOF }
