@@ -11,6 +11,8 @@ open System
 open GCLParser
 #load "GCLLexer.fs"
 open GCLLexer
+#load "GCLCompiler.fs"
+open GCLCompiler
 
 type Expression =
     | BExpression of b
@@ -154,8 +156,6 @@ let rec interpret_aEval a (mem:Map<string,int[]>) =
                     match found with
                     | Some a -> a.[interpret_aEval x mem]
                     | None -> 0
-       | Init(x) -> interpret_aEval x mem
-       | Seq(x,y) -> (interpret_aEval x mem) * (interpret_aEval y mem)
        | TimesExpr(x,y) -> (interpret_aEval x mem) * (interpret_aEval y mem)
        | DivExpr(x,y) -> (interpret_aEval x mem) / (interpret_aEval y mem)
        | PlusExpr(x,y) -> (interpret_aEval x mem) + (interpret_aEval y mem)
@@ -245,17 +245,37 @@ let rec initializeVariables userInput (mem:Map<string,int[]>) =
     | AssignX(x,y) -> Map.add x ([|interpret_aEval y mem|]) mem 
     | Next(x,y) -> initializeVariables x mem |> 
                    initializeVariables y
-    | _ -> mem
-    ;;
+    | _ -> mem;;
 
-let rec initializeArrays userInput (mem:Map<string,int[]>) =
-    match userInput with
-    | AssignX(x,y) -> Map.add x ([|interpret_aEval y mem|]) mem 
-    | Next(x,y) -> initializeVariables x mem |> 
-                   initializeVariables y
-    | _ -> mem
-    ;;
+// Sign Analyser
+let multiDivTable = Map.ofList([(('+','+'),['+']);(('-','-'),['+']);(('0','0'),['0']);(('+','0'),['0']);(('-','0'),['0']);
+                            (('0','+'),['0']);(('0','-'),['0']);(('-','+'),['-']);(('+','-'),['-'])])
 
+let plusTable = Map.ofList([(('+','+'),['+']);(('-','-'),['-']);(('0','0'),['0']);(('+','0'),['+']);(('-','0'),['-']);
+                            (('0','+'),['+']);(('0','-'),['-']);(('-','+'),['-';'0';'+']);(('+','-'),['-';'0';'+'])])
+
+let minusTable = Map.ofList([(('+','+'),['-']);(('-','-'),['-';'0';'+']);(('0','0'),['0']);(('+','0'),['+']);(('-','0'),['-']);
+                            (('0','+'),['-']);(('0','-'),['+']);(('-','+'),['-']);(('+','-'),['+'])])
+                                                   
+let powTable = Map.ofList([(('+','+'),['+']);(('-','-'),['-';'+']);(('0','0'),['+']);(('+','0'),['+']);(('-','0'),['+']);
+                            (('0','+'),['0']);(('0','-'),['0']);(('-','+'),['-';'+']);(('+','-'),['+'])])
+
+let andTable = Map.ofList([(('t','t'),['t']);(('f','f'),['f']);(('t','f'),['f']);(('f','t'),['f'])])
+
+let orTable = Map.ofList([(('t','t'),['t']);(('f','f'),['f']);(('t','f'),['t']);(('f','t'),['t'])])
+
+let eqTable = Map.ofList([(('+','+'),['t';'f']);(('-','-'),['t';'f']);(('0','0'),['t']);(('+','0'),['f']);(('-','0'),['f']);
+                            (('0','+'),['f']);(('0','-'),['f']);(('-','+'),['f']);(('+','-'),['f'])])
+
+let neqTable = Map.ofList([(('+','+'),['t';'f']);(('-','-'),['t';'f']);(('0','0'),['f']);(('+','0'),['t']);(('-','0'),['t']);
+                            (('0','+'),['t']);(('0','-'),['t']);(('-','+'),['t']);(('+','-'),['t'])])
+
+let gtTable = Map.ofList([(('+','+'),['t';'f']);(('-','-'),['t';'f']);(('0','0'),['f']);(('+','0'),['t']);(('-','0'),['f']);
+                            (('0','+'),['f']);(('0','-'),['t']);(('-','+'),['f']);(('+','-'),['t'])])
+
+let geTable = Map.ofList([(('+','+'),['t';'f']);(('-','-'),['t';'f']);(('0','0'),['t']);(('+','0'),['t']);(('-','0'),['f']);
+                            (('0','+'),['f']);(('0','-'),['t']);(('-','+'),['f']);(('+','-'),['t'])])
+                            
 // Start interacting with the user
 printfn "Enter an expression: ";;
 let lexbuf = LexBuffer<_>.FromString (Console.ReadLine());;
@@ -265,10 +285,6 @@ printfn "Initialize your variables in this format x:=2;y:=0 ";;
 let interpretLexbuf = LexBuffer<_>.FromString (Console.ReadLine())
 let interpretExpression = parse interpretLexbuf
 let initializedMemory = initializeVariables (interpretExpression) memory;;
-printfn "Initialize your arrays in this format A:=[1,2,3,4] ";;
-let interpretArrayLexbuf = LexBuffer<_>.FromString (Console.ReadLine())
-let interpretArrayExpression = parse interpretArrayLexbuf
-let initializedArrayMemory = initializeVariables (interpretArrayExpression) initializedMemory;;
-let mem = interpret edgeList "q▷" initializedArrayMemory;;
+let mem = interpret edgeList "q▷" initializedMemory;;
 let sortedList2 = List.sortBy (fun (x,y) -> x = "status") (Map.toList mem) |> List.rev ;;
 printfn "%s" (printMem endNode (sortedList2))
