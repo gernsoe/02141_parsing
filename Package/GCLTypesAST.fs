@@ -9,8 +9,6 @@ type a =
     | N of int
     | X of string
     | A of (string * a)
-    | Init of a
-    | Seq of (a * a)
     | PlusExpr of (a * a)
     | MinusExpr of (a * a)
     | TimesExpr of (a * a)

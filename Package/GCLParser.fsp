@@ -79,9 +79,7 @@ guarded:
 arithmetic:
 	| INT                           		{ N($1) }
 	| STRING								{ X($1) }
-	| LSPAR arithmetic RSPAR                { Init($2)}
 	| STRING LSPAR arithmetic RSPAR			{ A($1, $3) }
-	| arithemtic COMMA arithemtic 			{ Seq($1,$3)}
 	| arithmetic PLUS arithmetic   			{ PlusExpr($1,$3) }
 	| arithmetic MINUS arithmetic   		{ MinusExpr($1,$3) }
 	| arithmetic TIMES arithmetic   		{ TimesExpr($1,$3) }

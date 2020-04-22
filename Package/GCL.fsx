@@ -154,8 +154,6 @@ let rec interpret_aEval a (mem:Map<string,int[]>) =
                     match found with
                     | Some a -> a.[interpret_aEval x mem]
                     | None -> 0
-       | Init(x) -> interpret_aEval x mem
-       | Seq(x,y) -> (interpret_aEval x mem) * (interpret_aEval y mem)
        | TimesExpr(x,y) -> (interpret_aEval x mem) * (interpret_aEval y mem)
        | DivExpr(x,y) -> (interpret_aEval x mem) / (interpret_aEval y mem)
        | PlusExpr(x,y) -> (interpret_aEval x mem) + (interpret_aEval y mem)
@@ -248,27 +246,201 @@ let rec initializeVariables userInput (mem:Map<string,int[]>) =
     | _ -> mem
     ;;
 
-let rec initializeArrays userInput (mem:Map<string,int[]>) =
-    match userInput with
-    | AssignX(x,y) -> Map.add x ([|interpret_aEval y mem|]) mem 
-    | Next(x,y) -> initializeVariables x mem |> 
-                   initializeVariables y
-    | _ -> mem
+// ***************************************************** Sign Analyser start ****************************************************
+
+// Sign combinations of every operation
+let multiDivTable = Map.ofList([(('+','+'),['+']);(('-','-'),['+']);(('0','0'),['0']);(('+','0'),['0']);(('-','0'),['0']);
+                            (('0','+'),['0']);(('0','-'),['0']);(('-','+'),['-']);(('+','-'),['-'])])
+
+let plusTable = Map.ofList([(('+','+'),['+']);(('-','-'),['-']);(('0','0'),['0']);(('+','0'),['+']);(('-','0'),['-']);
+                            (('0','+'),['+']);(('0','-'),['-']);(('-','+'),['-';'0';'+']);(('+','-'),['-';'0';'+'])])
+
+let minusTable = Map.ofList([(('+','+'),['-']);(('-','-'),['-';'0';'+']);(('0','0'),['0']);(('+','0'),['+']);(('-','0'),['-']);
+                            (('0','+'),['-']);(('0','-'),['+']);(('-','+'),['-']);(('+','-'),['+'])])
+                                                   
+let powTable = Map.ofList([(('+','+'),['+']);(('-','-'),['-';'+']);(('0','0'),['+']);(('+','0'),['+']);(('-','0'),['+']);
+                            (('0','+'),['0']);(('0','-'),['0']);(('-','+'),['-';'+']);(('+','-'),['+'])])
+
+let UminusTable = Map.ofList([(('+'),['-']);(('-'),['+']);(('0'),['0']);])
+
+let paraTable = Map.ofList([])
+
+let andTable = Map.ofList([(('t','t'),['t']);(('f','f'),['f']);(('t','f'),['f']);(('f','t'),['f'])])
+
+let orTable = Map.ofList([(('t','t'),['t']);(('f','f'),['f']);(('t','f'),['t']);(('f','t'),['t'])])
+
+let notTable = Map.ofList([(('t'),['f']);(('f'),['t'])])
+
+let eqTable = Map.ofList([(('+','+'),['t';'f']);(('-','-'),['t';'f']);(('0','0'),['t']);(('+','0'),['f']);(('-','0'),['f']);
+                            (('0','+'),['f']);(('0','-'),['f']);(('-','+'),['f']);(('+','-'),['f'])])
+
+let neqTable = Map.ofList([(('+','+'),['t';'f']);(('-','-'),['t';'f']);(('0','0'),['f']);(('+','0'),['t']);(('-','0'),['t']);
+                            (('0','+'),['t']);(('0','-'),['t']);(('-','+'),['t']);(('+','-'),['t'])])
+
+let gtTable = Map.ofList([(('+','+'),['t';'f']);(('-','-'),['t';'f']);(('0','0'),['f']);(('+','0'),['t']);(('-','0'),['f']);
+                            (('0','+'),['f']);(('0','-'),['t']);(('-','+'),['f']);(('+','-'),['t'])])
+
+let geTable = Map.ofList([(('+','+'),['t';'f']);(('-','-'),['t';'f']);(('0','0'),['t']);(('+','0'),['t']);(('-','0'),['f']);
+                            (('0','+'),['f']);(('0','-'),['t']);(('-','+'),['f']);(('+','-'),['t'])])
+
+// From p. 48 in FM
+let sign = function
+    | x when x > 0 -> Set.ofList['+']
+    | x when x < 0 -> Set.ofList['-']
+    | x -> Set.ofList['0']
+
+let rec unionX x y yfull map set =
+    match x with
+    | x::xtail -> 
+        match y with
+        | y::ytail -> Set.union (Map.find(x,y) map) (unionX (x::xtail) ytail yfull map set);
+        | _ -> unionX xtail yfull yfull map set;
+    | _ -> set;
+
+let rec unionY x y xfull map set =
+    match y with
+    | y::ytail -> 
+        match x with
+        | x::xtail -> Set.union (Map.find(x,y) map) (unionX (y::ytail) xtail xfull map set);
+        | _ -> unionY ytail xfull xfull map set;
+    | _ -> set;
+
+let union x y map set = Set.union (unionX (Set.toList(x)) (Set.toList(y)) (Set.toList (y)) map set) (unionY (Set.toList(x)) (Set.toList(y)) (Set.toList (x)) map set);
+
+let unionOfSigns x y map =
+    let mutable set = Set.empty
+    for key in x do
+        for value in y do
+            set <- Set.union set (Set.ofList(Map.find(key, value) map))
+    set
+    
+let convertToSet x map =
+    let mutable s = Set.empty
+    for key in x do
+        s <- Set.union s (Set.ofList(Map.find key map))
+    s
+
+let rec sign_aEval a (amem:Map<string,Set<char>>) =
+    match a with
+       | N(x) -> sign(x)
+       | X(s) -> Map.find s amem
+       | A(s, x) -> if Set.contains 't' (unionOfSigns (sign_aEval x amem) (Set.ofList(['0'])) geTable) then Map.find s amem else Set.empty
+       | TimesExpr(x,y) -> union (sign_aEval x amem) (sign_aEval y amem) multiDivTable Set.empty
+       | DivExpr(x,y) -> union (sign_aEval x amem) (sign_aEval y amem) multiDivTable Set.empty
+       | PlusExpr(x,y) -> union (sign_aEval x amem) (sign_aEval y amem) plusTable Set.empty
+       | MinusExpr(x,y) -> union (sign_aEval x amem) (sign_aEval y amem) minusTable Set.empty
+       | PowExpr(x,y) -> union (sign_aEval x amem) (sign_aEval y amem) powTable Set.empty
+       | UMinusExpr(x) -> convertToSet (sign_aEval x amem) UminusTable
+       | ParaA(x) -> convertToSet (sign_aEval x amem) paraTable
+
+and sign_bEval b (amem:Map<string,Set<char>>) = 
+    match b with
+       | True -> Set.ofList(['t'])
+       | False -> Set.ofList(['f'])
+       | And1Expr(x,y) -> let b1 = sign_bEval x amem
+                          let b2 = sign_bEval y amem
+                          unionOfSigns b1 b2 andTable
+       | Or1Expr(x,y) ->  let b1 = sign_bEval x amem
+                          let b2 = sign_bEval y amem
+                          unionOfSigns b1 b2 orTable
+       | And2Expr(x,y) -> unionOfSigns (sign_bEval x amem) (sign_bEval y amem) andTable
+       | Or2Expr(x,y) -> unionOfSigns (sign_bEval x amem) (sign_bEval y amem) orTable
+       | NotExpr(x) -> convertToSet (sign_bEval x amem) notTable
+       | EqExpr(x,y) -> unionOfSigns (sign_aEval x amem) (sign_aEval y amem) eqTable
+       | NeqExpr(x,y) -> unionOfSigns (sign_aEval x amem) (sign_aEval y amem) neqTable
+       | Gt(x,y) -> unionOfSigns (sign_aEval x amem) (sign_aEval y amem) gtTable
+       | Ge(x,y) -> unionOfSigns (sign_aEval x amem) (sign_aEval y amem) geTable
+       | Lt(x,y) -> unionOfSigns (sign_aEval y amem) (sign_aEval x amem) gtTable
+       | Le(x,y) -> unionOfSigns (sign_aEval y amem) (sign_aEval x amem) geTable
+       | ParaB(x) -> convertToSet (sign_bEval x amem) paraTable;;
+
+let signMemory = Map.empty<string, Set<char>>;;
+
+// Returns true if the input edge can be chosen
+(*
+let checkAct (mem:Map<string,int[]>) edge =
+    match edge with
+    | (_,CExpression(act),_) -> true
+    | (_,BExpression(act),_) -> interpret_bEval act mem;;
+
+
+// Returns the edges which can be chosen
+let possibleActs mem edges = List.filter (checkAct mem) edges;;
+*)
+
+// Write assignemnts into the memory
+let evaluateSign act mem = 
+    match act with 
+    | AssignX(x,y) -> Map.add x ([|interpret_aEval y mem|]) mem
+    | AssignA(s,x,y) -> let found = mem.TryFind s
+                        match found with
+                        | Some a -> Map.add s (a |> Array.mapi(fun i v -> if i = interpret_aEval x mem then interpret_aEval y mem else v)) mem
+                        | None -> mem
+    |_ -> mem
     ;;
 
+let rec printSignMem node memList =
+    //let status = List.find(fun(x,y) -> x = "status") |> List.map(fun(x,y) -> )   
+    match memList with
+    |(k,v)::tail when k = "status" -> match v with
+                                      | [|0|] -> "status: Stuck\nNode: " + node + "\n" + (printMem node tail)
+                                      | [|1|] -> "status: Terminated \nNode: " + node + "\n" + (printMem node tail)
+                                      | _ -> ""
+    |(k,v)::tail -> k + ": " + (string) v.[0] + "\n" + (printMem node tail)
+    |(k,v)::[] when k = "status" -> match v with
+                                    | [|0|] -> "status: Stuck at "
+                                    | [|1|] -> "status: Terminated \n"
+                                    | _ -> ""
+    |(k,v)::[] -> k + ": " + (string) v.[0]
+    | _ -> ""
+
+//let mutable endNode = "";;
+// Walk the programgraph by chosing an edge from the node given as input to the function
+let rec SignAnalyzer edgelist node mem =
+    if node = "q◀" then  endNode <- node
+                         Map.add "status" [|1|] mem 
+                       //|> Map.toList |> printMem node |> sprintf "%s"
+    else 
+    let edges = List.filter(fun (qstart, act, qslut) -> qstart = node) edgelist
+    let possibleEdge = possibleActs mem edges
+    match possibleEdge with
+    | (_,CExpression(act),qslut)::[] -> evaluateAct act mem |> interpret edgelist qslut
+    | (_,BExpression(act), qslut)::[] -> interpret edgelist qslut mem
+    | _ -> endNode <- node
+           Map.add "status" [|0|] mem //|> Map.toList |> printMem node |> sprintf "%s"
+    ;;
+
+
+
+let rec initializeSigns userInput (mem:Map<string, Set<char>>) =
+    match userInput with
+    | AssignX(x,y) -> Map.add x ([|sign_aEval y mem|]) mem 
+    | Next(x,y) -> initializeSigns x mem |> 
+                   initializeSigns y
+    | _ -> mem
+    ;;
+// **************************************************** Sign Analyser end *******************************************************
+
 // Start interacting with the user
+// Compiler
 printfn "Enter an expression: ";;
 let lexbuf = LexBuffer<_>.FromString (Console.ReadLine());;
 let expression = parse lexbuf;;
 let edgeList = compute expression;;
+
+// Interpreter
 printfn "Initialize your variables in this format x:=2;y:=0 ";;
 let interpretLexbuf = LexBuffer<_>.FromString (Console.ReadLine())
 let interpretExpression = parse interpretLexbuf
 let initializedMemory = initializeVariables (interpretExpression) memory;;
-printfn "Initialize your arrays in this format A:=[1,2,3,4] ";;
-let interpretArrayLexbuf = LexBuffer<_>.FromString (Console.ReadLine())
-let interpretArrayExpression = parse interpretArrayLexbuf
-let initializedArrayMemory = initializeVariables (interpretArrayExpression) initializedMemory;;
-let mem = interpret edgeList "q▷" initializedArrayMemory;;
+let mem = interpret edgeList "q▷" initializedMemory;;
+let sortedList2 = List.sortBy (fun (x,y) -> x = "status") (Map.toList mem) |> List.rev ;;
+printfn "%s" (printMem endNode (sortedList2))
+
+// Sign analysis
+let signLexbuf = LexBuffer<_>.FromString (Console.ReadLine())
+let signExpression = parse signLexbuf
+let initializedSignMemory = initializeSigns (signExpression) signMemory;;
+let mem = SignAnalyzer edgeList "q▷" initializedSignMemory;; 
 let sortedList2 = List.sortBy (fun (x,y) -> x = "status") (Map.toList mem) |> List.rev ;;
 printfn "%s" (printMem endNode (sortedList2))

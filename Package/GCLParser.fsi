@@ -27,6 +27,7 @@ type token =
   | RPAR
   | LSPAR
   | RSPAR
+  | COMMA
   | EOF
   | PLUS
   | MINUS
@@ -62,6 +63,7 @@ type tokenId =
     | TOKEN_RPAR
     | TOKEN_LSPAR
     | TOKEN_RSPAR
+    | TOKEN_COMMA
     | TOKEN_EOF
     | TOKEN_PLUS
     | TOKEN_MINUS
