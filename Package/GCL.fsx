@@ -59,7 +59,7 @@ let rec dEval gc =
 let rec expEval (exp: Expression) =
     match exp with
         | CExpression(AssignX(s,a)) -> s + ":=" + aEval(a)
-        | CExpression(AssignA(s, a1,a2)) -> aEval(a1) + ":=" + aEval(a2)
+        | CExpression(AssignA(a1,a2)) -> aEval(a1) + ":=" + aEval(a2)
         | CExpression(Skip) -> "skip"
         | BExpression b -> bEval(b)
         | _ -> "";
@@ -68,7 +68,7 @@ let mutable counter = 0;
 let rec cEval start slut c =
     match c with
         | AssignX(s, a) -> "q" + start + " -> q" + slut + "[label = \"" + s + ":=" + aEval(a) + "\"];"
-        | AssignA(s, a1, a2) -> "q" + start + " -> q" + slut + "[label = \"" + aEval(a1) + ":=" + aEval(a2) + "\"];"
+        | AssignA(a1, a2) -> "q" + start + " -> q" + slut + "[label = \"" + aEval(a1) + ":=" + aEval(a2) + "\"];"
         | Skip -> "q" + start + " -> q" + slut + "[label = \"skip\"];"
         | Next(c1, c2) -> counter <- counter + 1
                           cEval start (counter.ToString()) c1  + "\n" + cEval (counter.ToString()) slut c2
@@ -86,7 +86,7 @@ let mutable fix = False;
 let rec cDEval start slut c d =
     match c with
         | CExpression(AssignX(s, a)) -> [("q" + start, CExpression(AssignX(s,a)) , "q" + slut)] //  "q" + start + " -> q" + slut + "[label = \"" + s + ":=" + aEval(a) + "\"];"
-        | CExpression(AssignA(s, a1, a2)) -> [("q" + start, CExpression(AssignA(s, a1,a2)), "q" + slut)]//"q" + start + " -> q" + slut + "[label = \"" + aEval(a1) + ":=" + aEval(a2) + "\"];"
+        | CExpression(AssignA(a1, a2)) -> [("q" + start, CExpression(AssignA(a1,a2)), "q" + slut)]//"q" + start + " -> q" + slut + "[label = \"" + aEval(a1) + ":=" + aEval(a2) + "\"];"
         | CExpression(Skip) -> [("q" + start, CExpression(Skip), "q" + slut)] // "q" + start + " -> q" + slut + "[label = \"skip\"];"
         | CExpression(Next(c1, c2)) -> counter <- counter + 1
                                        cDEval start (counter.ToString()) (CExpression(c1)) d @ cDEval (counter.ToString()) slut (CExpression(c2)) d
@@ -194,16 +194,20 @@ let checkAct (mem:Map<string,int[]>) edge =
 // Returns the edges which can be chosen
 let possibleActs mem edges = List.filter (checkAct mem) edges;;
 
+let getArray = function | A(x,y) -> (x,y) | _ -> ("",N(0));;
+
 // Write assignemnts into the memory
 let evaluateAct act mem = 
     match act with 
     | AssignX(x,y) -> Map.add x ([|interpret_aEval y mem|]) mem
-    | AssignA(s,x,y) -> let found = mem.TryFind s
-                        match found with
-                        | Some a -> Map.add s (a |> Array.mapi(fun i v -> if i = interpret_aEval x mem then interpret_aEval y mem else v)) mem
-                        | None -> mem
+    | AssignA(x,y) -> let s = getArray x
+                      let found = mem.TryFind (fst s) 
+                      match found with
+                      | Some a ->  Map.add (fst s) (a |> Array.mapi(fun i v -> if i = (interpret_aEval (snd s)) mem then interpret_aEval y mem else v)) mem
+                      | None -> mem
     |_ -> mem
     ;;
+
 
 let printArray arr =
     let mutable s=""
@@ -455,7 +459,7 @@ let expression = parse lexbuf;;
 let edgeList = compute expression;;
 printfn "Grammar recognized igen" 
 
-(*
+
 // Interpreter
 printfn "Initialize your variables in this format x:=2;y:=0 ";;
 //let interpretLexbuf = LexBuffer<_>.FromString (Console.ReadLine())
@@ -464,7 +468,7 @@ let initializedMemory = initializeVariables "Interpreter_test.txt";;
 let mem = interpret edgeList "q▷" initializedMemory;;
 let sortedList2 = List.sortBy (fun (x,y) -> x = "status") (Map.toList mem) |> List.rev ;;
 printfn "%s" (printMem endNode (sortedList2))
-*)
+
 
 
 // Sign analysis
