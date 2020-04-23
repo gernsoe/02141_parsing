@@ -320,41 +320,41 @@ let convertToSet x map =
         s <- Set.union s (Set.ofList(Map.find key map))
     s
 
-let rec sign_aEval a (amem:Map<string,Set<char>>) =
+let rec sign_aEval a (signMem:Map<string,Set<char>>) =
     match a with
        | N(x) -> sign(x)
-       | X(s) -> Map.find s amem
-       | A(s, x) -> if Set.contains 't' (unionOfSigns (sign_aEval x amem) (Set.ofList(['0'])) geTable) then Map.find s amem else Set.empty
-       | TimesExpr(x,y) -> union (sign_aEval x amem) (sign_aEval y amem) multiDivTable []
-       | DivExpr(x,y) -> union (sign_aEval x amem) (sign_aEval y amem) multiDivTable []
-       | PlusExpr(x,y) -> union (sign_aEval x amem) (sign_aEval y amem) plusTable []
-       | MinusExpr(x,y) -> union (sign_aEval x amem) (sign_aEval y amem) minusTable []
-       | PowExpr(x,y) -> union (sign_aEval x amem) (sign_aEval y amem) powTable []
-       | UMinusExpr(x) -> convertToSet (sign_aEval x amem) UminusTable
-       | ParaA(x) -> convertToSet (sign_aEval x amem) paraTable
+       | X(s) -> Map.find s signMem
+       | A(s, x) -> if Set.contains 't' (unionOfSigns (sign_aEval x signMem) (Set.ofList(['0'])) geTable) then Map.find s signMem else Set.empty
+       | TimesExpr(x,y) -> union (sign_aEval x signMem) (sign_aEval y signMem) multiDivTable []
+       | DivExpr(x,y) -> union (sign_aEval x signMem) (sign_aEval y signMem) multiDivTable []
+       | PlusExpr(x,y) -> union (sign_aEval x signMem) (sign_aEval y signMem) plusTable []
+       | MinusExpr(x,y) -> union (sign_aEval x signMem) (sign_aEval y signMem) minusTable []
+       | PowExpr(x,y) -> union (sign_aEval x signMem) (sign_aEval y signMem) powTable []
+       | UMinusExpr(x) -> convertToSet (sign_aEval x signMem) UminusTable
+       | ParaA(x) -> convertToSet (sign_aEval x signMem) paraTable
 
-and sign_bEval b (amem:Map<string,Set<char>>) = 
+and sign_bEval b (signMem:Map<string,Set<char>>) = 
     match b with
        | True -> Set.ofList(['t'])
        | False -> Set.ofList(['f'])
-       | And1Expr(x,y) -> let b1 = sign_bEval x amem
-                          let b2 = sign_bEval y amem
+       | And1Expr(x,y) -> let b1 = sign_bEval x signMem
+                          let b2 = sign_bEval y signMem
                           unionOfSigns b1 b2 andTable
-       | Or1Expr(x,y) ->  let b1 = sign_bEval x amem
-                          let b2 = sign_bEval y amem
+       | Or1Expr(x,y) ->  let b1 = sign_bEval x signMem
+                          let b2 = sign_bEval y signMem
                           unionOfSigns b1 b2 orTable
-       | And2Expr(x,y) -> unionOfSigns (sign_bEval x amem) (sign_bEval y amem) andTable
-       | Or2Expr(x,y) -> unionOfSigns (sign_bEval x amem) (sign_bEval y amem) orTable
-       | NotExpr(x) -> convertToSet (sign_bEval x amem) notTable
-       | EqExpr(x,y) -> unionOfSigns (sign_aEval x amem) (sign_aEval y amem) eqTable
-       | NeqExpr(x,y) -> unionOfSigns (sign_aEval x amem) (sign_aEval y amem) neqTable
-       | Gt(x,y) -> unionOfSigns (sign_aEval x amem) (sign_aEval y amem) gtTable
-       | Ge(x,y) -> unionOfSigns (sign_aEval x amem) (sign_aEval y amem) geTable
-       | Lt(x,y) -> unionOfSigns (sign_aEval y amem) (sign_aEval x amem) gtTable
-       | Le(x,y) -> unionOfSigns (sign_aEval y amem) (sign_aEval x amem) geTable
-       | ParaB(x) -> convertToSet (sign_bEval x amem) paraTable;;
+       | And2Expr(x,y) -> unionOfSigns (sign_bEval x signMem) (sign_bEval y signMem) andTable
+       | Or2Expr(x,y) -> unionOfSigns (sign_bEval x signMem) (sign_bEval y signMem) orTable
+       | NotExpr(x) -> convertToSet (sign_bEval x signMem) notTable
+       | EqExpr(x,y) -> unionOfSigns (sign_aEval x signMem) (sign_aEval y signMem) eqTable
+       | NeqExpr(x,y) -> unionOfSigns (sign_aEval x signMem) (sign_aEval y signMem) neqTable
+       | Gt(x,y) -> unionOfSigns (sign_aEval x signMem) (sign_aEval y signMem) gtTable
+       | Ge(x,y) -> unionOfSigns (sign_aEval x signMem) (sign_aEval y signMem) geTable
+       | Lt(x,y) -> unionOfSigns (sign_aEval y signMem) (sign_aEval x signMem) gtTable
+       | Le(x,y) -> unionOfSigns (sign_aEval y signMem) (sign_aEval x signMem) geTable
+       | ParaB(x) -> convertToSet (sign_bEval x signMem) paraTable;;
 
-let signMemory = Map.empty<string, Set<char>>;;
+let nodeMemory = Map.empty<string, Set<Map<string, Set<char>>>>;;
 
 // Returns true if the input edge can be chosen
 (*
@@ -396,15 +396,33 @@ let rec printSignMem node memList =
 
 let findEdges node edgelist = List.filter(fun (qstart, act, qslut) -> qstart = node) edgelist
 
-let boolEdge qstar act qslut amem 
+let boolEdge qstart act qslut amem worklist =
+    let mutable newMem = amem
+    let mutable newWorklist = worklist
+    for signMap in (Map.find qstart amem) do
+        if Set.contains 't' (sign_bEval act signMap) then newMem <- Map.add qslut (Set.add signMap (Map.find qslut amem)) amem 
+    if (Map.find qslut amem) <> (Map.find qslut newMem) then newWorklist <- qslut::worklist 
+    (newMem, newWorklist)
 
-let rec worklistTraversal edges amem worklist = 
+let skipEdge qstart qslut amem worklist =
+    (Map.add (Map.find qstart amem) (Map.find qslut amem), worklist)
+
+let assignEdge qstart act qslut amem worklist =
+    let ident = (fun (identifier, arith) -> identifier) act
+    let arith = (fun (identifier, arith) -> arith) act
+    
+
+        
+
+let rec worklistTraversal edges (amem:Map<string, Set<Map<string, Set<char>>>>) worklist = 
     match worklist with
     | [] -> amem
     | node::tail -> for e in findEdges node edges do 
                         match e with
-                        | (qstart, BExpression(act), qslut)  -> let (newAMem, newTail) = boolEdge
-                        | (qstart, CExpression(act), qslut)  -> let (newAmem, newTail) = if act = Skip then skipEdge else assignEdge
+                        | (qstart, BExpression(act), qslut)  -> let (newAMem, newWorklist) = boolEdge qstart act qslut amem tail
+                                                                 worklistTraversal edges newAMem newWorklist
+                        | (qstart, CExpression(act), qslut)  -> let (newAmem, newWorklist) = if act = Skip then skipEdge qstart qslut amem tail else assignEdge qstart act qslut amem tail
+                                                                 worklistTraversal edges newAmem newWorklist
                     worklistTraversal edges amem tail@newTail
 //let mutable endNode = "";;
 // Walk the programgraph by chosing an edge from the node given as input to the function
