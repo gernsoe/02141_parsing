@@ -252,59 +252,106 @@ let rec interpret edgelist node mem =
            Map.add "status" [|0|] mem //|> Map.toList |> printMem node |> sprintf "%s"
     ;;
 
-
-
-let rec initializeVariables userInput (mem:Map<string,int[]>) =
-    match userInput with
-    | AssignX(x,y) -> Map.add x ([|interpret_aEval y mem|]) mem 
-    | Next(x,y) -> initializeVariables x mem |> 
-                   initializeVariables y
-    | _ -> mem
-    ;;
-
 // ***************************************************** Sign Analyser start ****************************************************
 
 // Sign combinations of every operation
-let multiDivTable = Map.ofList([(('+','+'),['+']);(('-','-'),['+']);(('0','0'),['0']);(('+','0'),['0']);(('-','0'),['0']);
-                            (('0','+'),['0']);(('0','-'),['0']);(('-','+'),['-']);(('+','-'),['-'])]);;
+(*let multiDivTable = Map.ofList([(('+','+'),['+']);(('-','-'),['+']);(('0','0'),['0']);(('+','0'),['0']);(('-','0'),['0']);
+(('0','+'),['0']);(('0','-'),['0']);(('-','+'),['-']);(('+','-'),['-'])]);;
 
 let plusTable = Map.ofList([(('+','+'),['+']);(('-','-'),['-']);(('0','0'),['0']);(('+','0'),['+']);(('-','0'),['-']);
-                            (('0','+'),['+']);(('0','-'),['-']);(('-','+'),['-';'0';'+']);(('+','-'),['-';'0';'+'])]);;
+(('0','+'),['+']);(('0','-'),['-']);(('-','+'),['-';'0';'+']);(('+','-'),['-';'0';'+'])]);;
 
 let minusTable = Map.ofList([(('+','+'),['-']);(('-','-'),['-';'0';'+']);(('0','0'),['0']);(('+','0'),['+']);(('-','0'),['-']);
-                            (('0','+'),['-']);(('0','-'),['+']);(('-','+'),['-']);(('+','-'),['+'])]);;
-                                                   
+(('0','+'),['-']);(('0','-'),['+']);(('-','+'),['-']);(('+','-'),['+'])]);;
+                       
 let powTable = Map.ofList([(('+','+'),['+']);(('-','-'),['-';'+']);(('0','0'),['+']);(('+','0'),['+']);(('-','0'),['+']);
-                            (('0','+'),['0']);(('0','-'),['0']);(('-','+'),['-';'+']);(('+','-'),['+'])]);;
+(('0','+'),['0']);(('0','-'),['0']);(('-','+'),['-';'+']);(('+','-'),['+'])]);;
 
-let UminusTable = Map.ofList([(('+'),['-']);(('-'),['+']);(('0'),['0']);]);;
+let UminusTable = Map.ofList([(('+','0'),['-']);(('-','0'),['+']);(('0','0'),['0']);]);;
 
-let paraTable = Map.ofList([]);;
+let paraATable = Map.ofList([(('+', '0'),[' ']); (('-', '0'),[' ']); (('0', '0'),[' '])]);;
+
+let paraBTable = Map.ofList([(('t', '0'),[' ']); (('f', '0'),[' ']);]);;
 
 let andTable = Map.ofList([(('t','t'),['t']);(('f','f'),['f']);(('t','f'),['f']);(('f','t'),['f'])]);;
 
 let orTable = Map.ofList([(('t','t'),['t']);(('f','f'),['f']);(('t','f'),['t']);(('f','t'),['t'])]);;
 
-let notTable = Map.ofList([(('t'),['f']);(('f'),['t'])]);;
+let notTable = Map.ofList([(('t', 't'),['f']);(('f', 't'),['t'])]);;
 
 let eqTable = Map.ofList([(('+','+'),['t';'f']);(('-','-'),['t';'f']);(('0','0'),['t']);(('+','0'),['f']);(('-','0'),['f']);
-                            (('0','+'),['f']);(('0','-'),['f']);(('-','+'),['f']);(('+','-'),['f'])]);;
+(('0','+'),['f']);(('0','-'),['f']);(('-','+'),['f']);(('+','-'),['f'])]);;
 
 let neqTable = Map.ofList([(('+','+'),['t';'f']);(('-','-'),['t';'f']);(('0','0'),['f']);(('+','0'),['t']);(('-','0'),['t']);
-                            (('0','+'),['t']);(('0','-'),['t']);(('-','+'),['t']);(('+','-'),['t'])]);;
+(('0','+'),['t']);(('0','-'),['t']);(('-','+'),['t']);(('+','-'),['t'])]);;
 
 let gtTable = Map.ofList([(('+','+'),['t';'f']);(('-','-'),['t';'f']);(('0','0'),['f']);(('+','0'),['t']);(('-','0'),['f']);
-                            (('0','+'),['f']);(('0','-'),['t']);(('-','+'),['f']);(('+','-'),['t'])]);;
+(('0','+'),['f']);(('0','-'),['t']);(('-','+'),['f']);(('+','-'),['t'])]);;
 
 let geTable = Map.ofList([(('+','+'),['t';'f']);(('-','-'),['t';'f']);(('0','0'),['t']);(('+','0'),['t']);(('-','0'),['f']);
-                            (('0','+'),['f']);(('0','-'),['t']);(('-','+'),['f']);(('+','-'),['t'])]);;
+(('0','+'),['f']);(('0','-'),['t']);(('-','+'),['f']);(('+','-'),['t'])]);;
+*)
+
+let plusTable = Map.ofList[(('-','-'), ['-']);         (('-','0'), ['-']); (('-','+'), ['-';'0';'+']);
+                            (('0','-'), ['-']);         (('0','0'), ['0']); (('0','+'), ['+']);
+                            (('+','-'), ['-';'0';'+']); (('+','0'), ['+']); (('+','+'), ['+'])];;
+
+let minusTable = Map.ofList[(('-','-'), ['-';'0';'+']); (('-','0'), ['-']); (('-','+'), ['-']);
+                             (('0','-'), ['+']);         (('0','0'), ['0']); (('0','+'), ['-']);
+                             (('+','-'), ['+']);         (('+','0'), ['+']); (('+','+'), ['-';'0';'+'])];;
+
+let multiDivTable = Map.ofList[(('-','-'), ['+']); (('-','0'), ['0']); (('-','+'), ['-']);
+                                (('0','-'), ['0']); (('0','0'), ['0']); (('0','+'), ['0']);
+                                (('+','-'), ['-']); (('+','0'), ['0']); (('+','+'), ['+'])];;
+
+let UminusTable = Map.ofList[(('+','0'), ['-']); (('0','0'), ['0']); (('-','0'), ['+'])];;
+
+let powTable = Map.ofList[(('-', '-'), ['-';'+']); (('-','0'), ['+']); (('-','+'), ['-';'+']);
+                             (('0','-'), ['0']);      (('0','0'), ['+']); (('0','+'), ['0']);
+                             (('+','-'), ['+']);      (('+','0'), ['+']); (('+','+'), ['+'])];;
+
+let eqTable = Map.ofList[(('-','-'), ['t';'f']); (('-','0'), ['f']); (('-','+'), ['f']);
+                             (('0','-'), ['f']);     (('0','0'), ['t']); (('0','+'), ['f']);
+                             (('+','-'), ['f']);     (('+','0'), ['f']); (('+','+'), ['t'; 'f'])];;
+
+let neqTable = Map.ofList[(('-','-'), ['t';'f']); (('-','0'), ['t']); (('-','+'), ['t']);
+                            (('0','-'), ['t']);     (('0','0'), ['f']); (('0','+'), ['t']);
+                            (('+','-'), ['t']);     (('+','0'), ['t']); (('+','+'), ['t';'f'])];;
+
+let gtTable = Map.ofList[(('-','-'), ['t';'f']); (('-','0'), ['f']); (('-','+'), ['f']);
+                           (('0','-'), ['t']);     (('0','0'), ['f']); (('0','+'), ['f']);
+                           (('+','-'), ['t']);     (('+','0'), ['t']); (('+','+'), ['t';'f'])];;
+
+let geTable = Map.ofList[(('-','-'), ['t';'f']); (('-','0'), ['f']); (('-','+'), ['f']);
+                            (('0','-'), ['t']);     (('0','0'), ['t']); (('0','+'), ['f']);
+                            (('+','-'), ['t']);     (('+','0'), ['t']); (('+','+'), ['t';'f'])];;
+
+let andTable = Map.ofList[(('t','f'), ['f']); (('t','t'), ['t']); (('f','t'), ['f']); (('f','f'), ['f'])];;
+let orTable = Map.ofList[(('t','f'), ['t']); (('t','t'), ['t']); (('f','t'), ['t']); (('f','f'), ['f'])];;
+
+let notTable = Map.ofList[(('t', 't'), ['f']); (('f', 't'), ['t'])];;
+
+let paraATable = Map.ofList([(('+', '0'),[' ']); (('-', '0'),[' ']); (('0', '0'),[' '])]);;
+
+let paraBTable = Map.ofList([(('t', '0'),[' ']); (('f', '0'),[' ']);]);;
+
+
 
 // From p. 48 in FM
 let sign = function
     | x when x > 0 -> Set.ofList['+']
     | x when x < 0 -> Set.ofList['-']
-    | x -> Set.ofList['0'];;
+    | _ -> Set.ofList['0'];;
 
+let union x y m =
+    let mutable s = Set.empty
+    for i in x do
+        for j in y do
+            s <- Set.union s (Set.ofList(Map.find (i,j) m))
+    s
+;;
+
+(*
 let rec unionX x y yfull map set =
     match x with
     | x::xtail -> 
@@ -335,44 +382,46 @@ let convertToSet x map =
     for key in x do
         s <- Set.union s (Set.ofList(Map.find key map))
     s;;
+*)
+
 
 let rec sign_aEval a (signMem:Map<string,Set<char>>) =
     match a with
        | N(x) -> sign(x)
        | X(s) -> Map.find s signMem
-       | A(s, x) -> if Set.contains 't' (unionOfSigns (sign_aEval x signMem) (Set.ofList(['0'])) geTable) then Map.find s signMem else Set.empty
-       | TimesExpr(x,y) -> union (sign_aEval x signMem) (sign_aEval y signMem) multiDivTable []
-       | DivExpr(x,y) -> union (sign_aEval x signMem) (sign_aEval y signMem) multiDivTable []
-       | PlusExpr(x,y) -> union (sign_aEval x signMem) (sign_aEval y signMem) plusTable []
-       | MinusExpr(x,y) -> union (sign_aEval x signMem) (sign_aEval y signMem) minusTable []
-       | PowExpr(x,y) -> union (sign_aEval x signMem) (sign_aEval y signMem) powTable []
-       | UMinusExpr(x) -> convertToSet (sign_aEval x signMem) UminusTable
-       | ParaA(x) -> convertToSet (sign_aEval x signMem) paraTable
+       //| A(s, x) -> if Set.contains 't' (union (sign_aEval x signMem) (Set.ofList(['0'])) geTable) then Map.find s signMem else Set.empty
+       | TimesExpr(x,y) -> union (sign_aEval x signMem) (sign_aEval y signMem) multiDivTable
+       | DivExpr(x,y) -> union (sign_aEval x signMem) (sign_aEval y signMem) multiDivTable
+       | PlusExpr(x,y) -> union (sign_aEval x signMem) (sign_aEval y signMem) plusTable
+       | MinusExpr(x,y) -> union (sign_aEval x signMem) (sign_aEval y signMem) minusTable
+       | PowExpr(x,y) -> union (sign_aEval x signMem) (sign_aEval y signMem) powTable
+       | UMinusExpr(x) -> union (sign_aEval x signMem) (Set.ofList['0']) UminusTable
+       | ParaA(x) -> union (sign_aEval x signMem) (Set.ofList['0']) paraATable
 and sign_bEval b (signMem:Map<string,Set<char>>) = 
     match b with
        | True -> Set.ofList(['t'])
        | False -> Set.ofList(['f'])
-       | And1Expr(x,y) -> let b1 = sign_bEval x signMem
-                          let b2 = sign_bEval y signMem
-                          unionOfSigns b1 b2 andTable
-       | Or1Expr(x,y) ->  let b1 = sign_bEval x signMem
-                          let b2 = sign_bEval y signMem
-                          unionOfSigns b1 b2 orTable
-       | And2Expr(x,y) -> unionOfSigns (sign_bEval x signMem) (sign_bEval y signMem) andTable
-       | Or2Expr(x,y) -> unionOfSigns (sign_bEval x signMem) (sign_bEval y signMem) orTable
-       | NotExpr(x) -> convertToSet (sign_bEval x signMem) notTable
-       | EqExpr(x,y) -> unionOfSigns (sign_aEval x signMem) (sign_aEval y signMem) eqTable
-       | NeqExpr(x,y) -> unionOfSigns (sign_aEval x signMem) (sign_aEval y signMem) neqTable
-       | Gt(x,y) -> unionOfSigns (sign_aEval x signMem) (sign_aEval y signMem) gtTable
-       | Ge(x,y) -> unionOfSigns (sign_aEval x signMem) (sign_aEval y signMem) geTable
-       | Lt(x,y) -> unionOfSigns (sign_aEval y signMem) (sign_aEval x signMem) gtTable
-       | Le(x,y) -> unionOfSigns (sign_aEval y signMem) (sign_aEval x signMem) geTable
-       | ParaB(x) -> convertToSet (sign_bEval x signMem) paraTable;;
+       | And1Expr(x,y) ->  union (sign_bEval x signMem) (sign_bEval y signMem) andTable
+       | Or1Expr(x,y) ->  union (sign_bEval x signMem) (sign_bEval y signMem) orTable
+       | And2Expr(x,y) -> union (sign_bEval x signMem) (sign_bEval y signMem) andTable
+       | Or2Expr(x,y) -> union (sign_bEval x signMem) (sign_bEval y signMem) orTable
+       | NotExpr(x) -> union (sign_bEval x signMem) (Set.ofList['t']) notTable
+       | EqExpr(x,y) -> union (sign_aEval x signMem) (sign_aEval y signMem) eqTable
+       | NeqExpr(x,y) -> union (sign_aEval x signMem) (sign_aEval y signMem) neqTable
+       | Gt(x,y) -> union (sign_aEval x signMem) (sign_aEval y signMem) gtTable
+       | Ge(x,y) -> union (sign_aEval x signMem) (sign_aEval y signMem) geTable
+       | Lt(x,y) -> union (sign_aEval y signMem) (sign_aEval x signMem) gtTable
+       | Le(x,y) -> union (sign_aEval y signMem) (sign_aEval x signMem) geTable
+       | ParaB(x) -> union (sign_bEval x signMem) (Set.ofList['0']) paraBTable;;
 
 let nodeMemory = Map.empty<string, Set<Map<string, Set<char>>>>;;
 
-let rec printSignMem mem =
-    let printVal =
+let rec printSignMem (mem:Map<string, Set<Map<string, Set<char>>>>) =
+    let startNodeSet = Map.find "q▷"mem
+    Set.map (fun set -> Map.map (fun k v -> (sprintf "%s" k)) set) startNodeSet
+    
+    
+    //Set.map (fun set -> Map.map (fun k v -> (sprintf "%s %A" k v)) set) test
 ;;
 
 let findEdges node edgelist = List.filter(fun (qstart, act, qslut) -> qstart = node) edgelist;;
@@ -397,7 +446,7 @@ let assignEdge qstart act qslut amem worklist =
     let arithmetic = arith act
     let mutable newMem = amem
     for signMap in (Map.find qstart amem) do
-        newMem <- Map.add qslut (Set.add (Map.add identifier (sign_aEval arithmetic signMap) signMap) (Map.find qslut newMem)) newMem
+        newMem.Add(qslut, (Set.add (Map.add identifier (sign_aEval arithmetic signMap) signMap) (Map.find qslut newMem))) |> ignore
     (newMem, qslut::worklist);;
 
 
@@ -423,7 +472,7 @@ let initializeAmem file edgelist =
     let mutable startSignMem = Map.empty
     for e in edgelist do
         match e with
-        | (qs,_,_) -> amem <- Map.add qs Set.empty amem
+        | (qs,_,_) -> amem.Add(qs, Set.empty) |> ignore
     let lines = File.ReadAllLines(file)
     for line in lines do
         let assignment = line.Split('=')
@@ -448,6 +497,7 @@ let lexbuf = LexBuffer<_>.FromString (Console.ReadLine());;
 let expression = parse lexbuf;;
 let edgeList = compute expression;;
 
+(*
 // Interpreter
 printfn "Initialize your variables in this format x:=2;y:=0 ";;
 //let interpretLexbuf = LexBuffer<_>.FromString (Console.ReadLine())
@@ -456,9 +506,12 @@ let initializedMemory = initializeVariables "Interpreter_test.txt";;
 let mem = interpret edgeList "q▷" initializedMemory;;
 let sortedList2 = List.sortBy (fun (x,y) -> x = "status") (Map.toList mem) |> List.rev ;;
 printfn "%s" (printMem endNode (sortedList2))
+*)
+
 
 // Sign analysis
 let initializedSignMemory = initializeAmem "sign_analyser_test.txt" edgeList;;
-let mem = SignAnalyzer edgeList initializedSignMemory;; 
-printfn "%s" (printMem endNode (Map.toList mem));;
+let signMem = SignAnalyzer edgeList initializedSignMemory;; 
+printSignMem signMem
+//printfn "%s" (printMem endNode (Map.toList mem));;
 
