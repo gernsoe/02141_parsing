@@ -356,29 +356,6 @@ and sign_bEval b (signMem:Map<string,Set<char>>) =
 
 let nodeMemory = Map.empty<string, Set<Map<string, Set<char>>>>;;
 
-// Returns true if the input edge can be chosen
-(*
-let checkAct (mem:Map<string,int[]>) edge =
-    match edge with
-    | (_,CExpression(act),_) -> true
-    | (_,BExpression(act),_) -> interpret_bEval act mem;;
-
-
-// Returns the edges which can be chosen
-let possibleActs mem edges = List.filter (checkAct mem) edges;;
-*)
-
-// Write assignemnts into the memory
-let evaluateSign act mem = 
-    match act with 
-    | AssignX(x,y) -> Map.add x ([|interpret_aEval y mem|]) mem
-    | AssignA(s,x,y) -> let found = mem.TryFind s
-                        match found with
-                        | Some a -> Map.add s (a |> Array.mapi(fun i v -> if i = interpret_aEval x mem then interpret_aEval y mem else v)) mem
-                        | None -> mem
-    |_ -> mem
-    ;;
-
 let rec printSignMem node memList =
     //let status = List.find(fun(x,y) -> x = "status") |> List.map(fun(x,y) -> )   
     match memList with
@@ -404,42 +381,61 @@ let boolEdge qstart act qslut amem worklist =
     if (Map.find qslut amem) <> (Map.find qslut newMem) then newWorklist <- qslut::worklist 
     (newMem, newWorklist)
 
-let skipEdge qstart qslut amem worklist =
-    (Map.add (Map.find qstart amem) (Map.find qslut amem), worklist)
+let skipEdge qstart qslut (amem:Map<string, Set<Map<string, Set<char>>>>) worklist = 
+    (Map.add qslut (Map.find qstart amem) amem, qslut::worklist)
+
+let ident = function | AssignX(x,y) -> x | _ -> ""
+
+let arith = function | AssignX(x,y) -> y
 
 let assignEdge qstart act qslut amem worklist =
-    let ident = (fun (identifier, arith) -> identifier) act
-    let arith = (fun (identifier, arith) -> arith) act
+    let identifier = ident act
+    let arithmetic = arith act
+    let mutable newMem = amem
+    for signMap in (Map.find qstart amem) do
+        newMem <- Map.add qslut (Set.add (Map.add identifier (sign_aEval arithmetic signMap) signMap) (Map.find qslut newMem)) newMem
+    (newMem, qslut::worklist);
     
 
         
 
-let rec worklistTraversal edges (amem:Map<string, Set<Map<string, Set<char>>>>) worklist = 
+let rec worklistTraversal edges ((amem:Map<string, Set<Map<string, Set<char>>>>), worklist) = 
+    let mutable finalMem = amem
     match worklist with
     | [] -> amem
     | node::tail -> for e in findEdges node edges do 
                         match e with
-                        | (qstart, BExpression(act), qslut)  -> let (newAMem, newWorklist) = boolEdge qstart act qslut amem tail
-                                                                 worklistTraversal edges newAMem newWorklist
-                        | (qstart, CExpression(act), qslut)  -> let (newAmem, newWorklist) = if act = Skip then skipEdge qstart qslut amem tail else assignEdge qstart act qslut amem tail
-                                                                 worklistTraversal edges newAmem newWorklist
-                    worklistTraversal edges amem tail@newTail
+                        | (qstart, BExpression(act), qslut)  -> finalMem <- worklistTraversal edges (boolEdge qstart act qslut finalMem tail)
+                        | (qstart, CExpression(act), qslut)  -> finalMem <- if act = Skip then worklistTraversal edges (skipEdge qstart qslut finalMem tail) else worklistTraversal edges (assignEdge qstart act qslut finalMem tail)
+                    finalMem
 //let mutable endNode = "";;
 // Walk the programgraph by chosing an edge from the node given as input to the function
 let SignAnalyzer edgelist amem =
     let mutable workList = ["q▷"] 
-    
+    worklistTraversal edgelist (amem,workList)
     ;;
 
 
 // Husk at tilføje til amem - Det er memoriet af start noden
-let rec initializeSigns userInput (mem:Map<string, Set<char>>) =
-    match userInput with
-    | AssignX(x,y) -> Map.add x ([|sign_aEval y mem|]) mem 
-    | Next(x,y) -> initializeSigns x mem |> 
-                   initializeSigns y
-    | _ -> mem
-    ;;
+let initializeAmem file edgelist = 
+    let mutable amem = Map.empty
+    let mutable startSignMem = Map.empty
+    for e in edgelist do
+        match e with
+        | (qs,_,_) -> amem <- Map.add qs Set.empty amem
+    let lines = File.ReadAllLines(file)
+    for line in lines do
+        let assignment = line.Split('=')
+        startSignMem <- Map.add assignment.[0] (Set.empty.Add((char) assignment.[1])) startSignMem
+    Map.add "q▷" (Set.ofList[startSignMem]) amem
+
+let initializeVariables file =
+    let mutable mem = Map.empty
+    let lines = File.ReadAllLines(file)
+    for line in lines do
+        let assignment = line.Split('=')
+        mem <- Map.add assignment.[0] [|assignment.[1] |> int|] mem
+    mem
 // **************************************************** Sign Analyser end *******************************************************
 
 // Start interacting with the user
@@ -451,18 +447,16 @@ let edgeList = compute expression;;
 
 // Interpreter
 printfn "Initialize your variables in this format x:=2;y:=0 ";;
-let interpretLexbuf = LexBuffer<_>.FromString (Console.ReadLine())
-let interpretExpression = parse interpretLexbuf
-let initializedMemory = initializeVariables (interpretExpression) memory;;
+//let interpretLexbuf = LexBuffer<_>.FromString (Console.ReadLine())
+//let interpretExpression = parse interpretLexbuf
+let initializedMemory = initializeVariables "Interpreter_test.txt";;
 let mem = interpret edgeList "q▷" initializedMemory;;
 let sortedList2 = List.sortBy (fun (x,y) -> x = "status") (Map.toList mem) |> List.rev ;;
 printfn "%s" (printMem endNode (sortedList2))
 
 // Sign analysis
-let signLexbuf = LexBuffer<_>.FromString (Console.ReadLine())
-let signExpression = parse signLexbuf
-let initializedSignMemory = initializeSigns (signExpression) signMemory;;
-let mem = SignAnalyzer edgeList "q▷" initializedSignMemory;; 
+let initializedSignMemory = initializeAmem "sign_analyser_test.txt" edgeList;;
+let mem = SignAnalyzer edgeList initializedSignMemory;; 
 let sortedList2 = List.sortBy (fun (x,y) -> x = "status") (Map.toList mem) |> List.rev ;;
 printfn "%s" (printMem endNode (sortedList2))
 =======
