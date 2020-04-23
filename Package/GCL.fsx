@@ -426,7 +426,8 @@ let initializeAmem file edgelist =
     let lines = File.ReadAllLines(file)
     for line in lines do
         let assignment = line.Split('=')
-        startSignMem <- Map.add assignment.[0] (Set.empty.Add((char) assignment.[1])) startSignMem
+        let rhs = assignment.[1].Split(',')
+        startSignMem <- Map.add assignment.[0] (Set.ofSeq(Seq.map (fun c -> (char) c) rhs)) startSignMem
     Map.add "q▷" (Set.ofList[startSignMem]) amem
 
 let initializeVariables file =
@@ -434,7 +435,8 @@ let initializeVariables file =
     let lines = File.ReadAllLines(file)
     for line in lines do
         let assignment = line.Split('=')
-        mem <- Map.add assignment.[0] [|assignment.[1] |> int|] mem
+        let rhs = assignment.[1].Split(',')
+        mem <- Map.add assignment.[0] (Array.ofSeq(Seq.map (fun s -> (int) s) rhs)) mem
     mem
 // **************************************************** Sign Analyser end *******************************************************
 
