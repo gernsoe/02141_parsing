@@ -418,7 +418,9 @@ let nodeMemory = Map.empty<string, Set<Map<string, Set<char>>>>;;
 
 let rec printSignMem (mem:Map<string, Set<Map<string, Set<char>>>>) =
     let startNodeSet = Map.find "q▷"mem
-    Set.map (fun set -> Map.map (fun k v -> (sprintf "%s" k)) set) startNodeSet
+    Set.map (fun set -> Map.map (fun k v -> (sprintf "%s %A" k v)) set) startNodeSet
+   
+    //Set.map (fun set -> Map.map (fun k v -> (sprintf "%s" k)) set) startNodeSet
     
     
     //Set.map (fun set -> Map.map (fun k v -> (sprintf "%s %A" k v)) set) test
@@ -430,7 +432,7 @@ let boolEdge qstart act qslut amem worklist =
     let mutable newMem = amem
     let mutable newWorklist = worklist
     for signMap in (Map.find qstart amem) do
-        if Set.contains 't' (sign_bEval act signMap) then newMem <- Map.add qslut (Set.add signMap (Map.find qslut amem)) amem 
+        if Set.contains 't' (sign_bEval act signMap) then newMem <- newMem.Add(qslut, (Set.add signMap (Map.find qslut newMem))) 
     if (Map.find qslut amem) <> (Map.find qslut newMem) then newWorklist <- qslut::worklist 
     (newMem, newWorklist);;
 
@@ -446,7 +448,7 @@ let assignEdge qstart act qslut amem worklist =
     let arithmetic = arith act
     let mutable newMem = amem
     for signMap in (Map.find qstart amem) do
-        newMem.Add(qslut, (Set.add (Map.add identifier (sign_aEval arithmetic signMap) signMap) (Map.find qslut newMem))) |> ignore
+        newMem <- newMem.Add(qslut, (Set.add (Map.add identifier (sign_aEval arithmetic signMap) signMap) (Map.find qslut newMem))) 
     (newMem, qslut::worklist);;
 
 
@@ -456,8 +458,8 @@ let rec worklistTraversal edges ((amem:Map<string, Set<Map<string, Set<char>>>>)
     | [] -> amem
     | node::tail -> for e in findEdges node edges do 
                         match e with
-                        | (qstart, BExpression(act), qslut)  -> finalMem <- worklistTraversal edges (boolEdge qstart act qslut finalMem tail)
-                        | (qstart, CExpression(act), qslut)  -> finalMem <- if act = Skip then worklistTraversal edges (skipEdge qstart qslut finalMem tail) else worklistTraversal edges (assignEdge qstart act qslut finalMem tail)
+                        | (qstart, BExpression(act), qslut)  -> finalMem <- worklistTraversal edges (boolEdge qstart act qslut amem tail)
+                        | (qstart, CExpression(act), qslut)  -> finalMem <- if act = Skip then worklistTraversal edges (skipEdge qstart qslut amem tail) else worklistTraversal edges (assignEdge qstart act qslut amem tail)
                     finalMem;;
 //let mutable endNode = "";;
 // Walk the programgraph by chosing an edge from the node given as input to the function
@@ -470,9 +472,10 @@ let SignAnalyzer edgelist amem =
 let initializeAmem file edgelist = 
     let mutable amem = Map.empty
     let mutable startSignMem = Map.empty
+    amem <- amem.Add("q◀", Set.empty)
     for e in edgelist do
         match e with
-        | (qs,_,_) -> amem.Add(qs, Set.empty) |> ignore
+        | (qs,_,_) -> amem <- amem.Add(qs, Set.empty) 
     let lines = File.ReadAllLines(file)
     for line in lines do
         let assignment = line.Split('=')
