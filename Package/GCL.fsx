@@ -59,7 +59,7 @@ let rec dEval gc =
 let rec expEval (exp: Expression) =
     match exp with
         | CExpression(AssignX(s,a)) -> s + ":=" + aEval(a)
-        | CExpression(AssignA(s, a1,a2)) -> aEval(a1) + ":=" + aEval(a2)
+        | CExpression(AssignA(a1,a2)) -> aEval(a1) + ":=" + aEval(a2)
         | CExpression(Skip) -> "skip"
         | BExpression b -> bEval(b)
         | _ -> "";
@@ -68,7 +68,7 @@ let mutable counter = 0;
 let rec cEval start slut c =
     match c with
         | AssignX(s, a) -> "q" + start + " -> q" + slut + "[label = \"" + s + ":=" + aEval(a) + "\"];"
-        | AssignA(s, a1, a2) -> "q" + start + " -> q" + slut + "[label = \"" + aEval(a1) + ":=" + aEval(a2) + "\"];"
+        | AssignA(a1, a2) -> "q" + start + " -> q" + slut + "[label = \"" + aEval(a1) + ":=" + aEval(a2) + "\"];"
         | Skip -> "q" + start + " -> q" + slut + "[label = \"skip\"];"
         | Next(c1, c2) -> counter <- counter + 1
                           cEval start (counter.ToString()) c1  + "\n" + cEval (counter.ToString()) slut c2
@@ -86,7 +86,7 @@ let mutable fix = False;
 let rec cDEval start slut c d =
     match c with
         | CExpression(AssignX(s, a)) -> [("q" + start, CExpression(AssignX(s,a)) , "q" + slut)] //  "q" + start + " -> q" + slut + "[label = \"" + s + ":=" + aEval(a) + "\"];"
-        | CExpression(AssignA(s, a1, a2)) -> [("q" + start, CExpression(AssignA(s, a1,a2)), "q" + slut)]//"q" + start + " -> q" + slut + "[label = \"" + aEval(a1) + ":=" + aEval(a2) + "\"];"
+        | CExpression(AssignA(a1, a2)) -> [("q" + start, CExpression(AssignA(a1,a2)), "q" + slut)]//"q" + start + " -> q" + slut + "[label = \"" + aEval(a1) + ":=" + aEval(a2) + "\"];"
         | CExpression(Skip) -> [("q" + start, CExpression(Skip), "q" + slut)] // "q" + start + " -> q" + slut + "[label = \"skip\"];"
         | CExpression(Next(c1, c2)) -> counter <- counter + 1
                                        cDEval start (counter.ToString()) (CExpression(c1)) d @ cDEval (counter.ToString()) slut (CExpression(c2)) d
@@ -194,16 +194,20 @@ let checkAct (mem:Map<string,int[]>) edge =
 // Returns the edges which can be chosen
 let possibleActs mem edges = List.filter (checkAct mem) edges;;
 
+let getArray = function | A(x,y) -> (x,y) | _ -> ("",N(0));;
+
 // Write assignemnts into the memory
 let evaluateAct act mem = 
     match act with 
     | AssignX(x,y) -> Map.add x ([|interpret_aEval y mem|]) mem
-    | AssignA(s,x,y) -> let found = mem.TryFind s
-                        match found with
-                        | Some a -> Map.add s (a |> Array.mapi(fun i v -> if i = interpret_aEval x mem then interpret_aEval y mem else v)) mem
-                        | None -> mem
+    | AssignA(x,y) -> let s = getArray x
+                      let found = mem.TryFind (fst s) 
+                      match found with
+                      | Some a ->  Map.add (fst s) (a |> Array.mapi(fun i v -> if i = (interpret_aEval (snd s)) mem then interpret_aEval y mem else v)) mem
+                      | None -> mem
     |_ -> mem
     ;;
+
 
 let printArray arr =
     let mutable s=""
@@ -255,17 +259,17 @@ let rec interpret edgelist node mem =
 // ***************************************************** Sign Analyser start ****************************************************
 
 // Sign combinations of every operation
-(*let multiDivTable = Map.ofList([(('+','+'),['+']);(('-','-'),['+']);(('0','0'),['0']);(('+','0'),['0']);(('-','0'),['0']);
-(('0','+'),['0']);(('0','-'),['0']);(('-','+'),['-']);(('+','-'),['-'])]);;
+let multiDivTable = Map.ofList([(('+','+'),['+']);(('-','-'),['+']);(('0','0'),['0']);(('+','0'),['0']);(('-','0'),['0']);
+    (('0','+'),['0']);(('0','-'),['0']);(('-','+'),['-']);(('+','-'),['-'])]);;
 
 let plusTable = Map.ofList([(('+','+'),['+']);(('-','-'),['-']);(('0','0'),['0']);(('+','0'),['+']);(('-','0'),['-']);
-(('0','+'),['+']);(('0','-'),['-']);(('-','+'),['-';'0';'+']);(('+','-'),['-';'0';'+'])]);;
+    (('0','+'),['+']);(('0','-'),['-']);(('-','+'),['-';'0';'+']);(('+','-'),['-';'0';'+'])]);;
 
 let minusTable = Map.ofList([(('+','+'),['-']);(('-','-'),['-';'0';'+']);(('0','0'),['0']);(('+','0'),['+']);(('-','0'),['-']);
-(('0','+'),['-']);(('0','-'),['+']);(('-','+'),['-']);(('+','-'),['+'])]);;
+    (('0','+'),['-']);(('0','-'),['+']);(('-','+'),['-']);(('+','-'),['+'])]);;
                        
 let powTable = Map.ofList([(('+','+'),['+']);(('-','-'),['-';'+']);(('0','0'),['+']);(('+','0'),['+']);(('-','0'),['+']);
-(('0','+'),['0']);(('0','-'),['0']);(('-','+'),['-';'+']);(('+','-'),['+'])]);;
+    (('0','+'),['0']);(('0','-'),['0']);(('-','+'),['-';'+']);(('+','-'),['+'])]);;
 
 let UminusTable = Map.ofList([(('+','0'),['-']);(('-','0'),['+']);(('0','0'),['0']);]);;
 
@@ -280,60 +284,16 @@ let orTable = Map.ofList([(('t','t'),['t']);(('f','f'),['f']);(('t','f'),['t']);
 let notTable = Map.ofList([(('t', 't'),['f']);(('f', 't'),['t'])]);;
 
 let eqTable = Map.ofList([(('+','+'),['t';'f']);(('-','-'),['t';'f']);(('0','0'),['t']);(('+','0'),['f']);(('-','0'),['f']);
-(('0','+'),['f']);(('0','-'),['f']);(('-','+'),['f']);(('+','-'),['f'])]);;
+    (('0','+'),['f']);(('0','-'),['f']);(('-','+'),['f']);(('+','-'),['f'])]);;
 
 let neqTable = Map.ofList([(('+','+'),['t';'f']);(('-','-'),['t';'f']);(('0','0'),['f']);(('+','0'),['t']);(('-','0'),['t']);
-(('0','+'),['t']);(('0','-'),['t']);(('-','+'),['t']);(('+','-'),['t'])]);;
+    (('0','+'),['t']);(('0','-'),['t']);(('-','+'),['t']);(('+','-'),['t'])]);;
 
 let gtTable = Map.ofList([(('+','+'),['t';'f']);(('-','-'),['t';'f']);(('0','0'),['f']);(('+','0'),['t']);(('-','0'),['f']);
-(('0','+'),['f']);(('0','-'),['t']);(('-','+'),['f']);(('+','-'),['t'])]);;
+    (('0','+'),['f']);(('0','-'),['t']);(('-','+'),['f']);(('+','-'),['t'])]);;
 
 let geTable = Map.ofList([(('+','+'),['t';'f']);(('-','-'),['t';'f']);(('0','0'),['t']);(('+','0'),['t']);(('-','0'),['f']);
-(('0','+'),['f']);(('0','-'),['t']);(('-','+'),['f']);(('+','-'),['t'])]);;
-*)
-
-let plusTable = Map.ofList[(('-','-'), ['-']);         (('-','0'), ['-']); (('-','+'), ['-';'0';'+']);
-                            (('0','-'), ['-']);         (('0','0'), ['0']); (('0','+'), ['+']);
-                            (('+','-'), ['-';'0';'+']); (('+','0'), ['+']); (('+','+'), ['+'])];;
-
-let minusTable = Map.ofList[(('-','-'), ['-';'0';'+']); (('-','0'), ['-']); (('-','+'), ['-']);
-                             (('0','-'), ['+']);         (('0','0'), ['0']); (('0','+'), ['-']);
-                             (('+','-'), ['+']);         (('+','0'), ['+']); (('+','+'), ['-';'0';'+'])];;
-
-let multiDivTable = Map.ofList[(('-','-'), ['+']); (('-','0'), ['0']); (('-','+'), ['-']);
-                                (('0','-'), ['0']); (('0','0'), ['0']); (('0','+'), ['0']);
-                                (('+','-'), ['-']); (('+','0'), ['0']); (('+','+'), ['+'])];;
-
-let UminusTable = Map.ofList[(('+','0'), ['-']); (('0','0'), ['0']); (('-','0'), ['+'])];;
-
-let powTable = Map.ofList[(('-', '-'), ['-';'+']); (('-','0'), ['+']); (('-','+'), ['-';'+']);
-                             (('0','-'), ['0']);      (('0','0'), ['+']); (('0','+'), ['0']);
-                             (('+','-'), ['+']);      (('+','0'), ['+']); (('+','+'), ['+'])];;
-
-let eqTable = Map.ofList[(('-','-'), ['t';'f']); (('-','0'), ['f']); (('-','+'), ['f']);
-                             (('0','-'), ['f']);     (('0','0'), ['t']); (('0','+'), ['f']);
-                             (('+','-'), ['f']);     (('+','0'), ['f']); (('+','+'), ['t'; 'f'])];;
-
-let neqTable = Map.ofList[(('-','-'), ['t';'f']); (('-','0'), ['t']); (('-','+'), ['t']);
-                            (('0','-'), ['t']);     (('0','0'), ['f']); (('0','+'), ['t']);
-                            (('+','-'), ['t']);     (('+','0'), ['t']); (('+','+'), ['t';'f'])];;
-
-let gtTable = Map.ofList[(('-','-'), ['t';'f']); (('-','0'), ['f']); (('-','+'), ['f']);
-                           (('0','-'), ['t']);     (('0','0'), ['f']); (('0','+'), ['f']);
-                           (('+','-'), ['t']);     (('+','0'), ['t']); (('+','+'), ['t';'f'])];;
-
-let geTable = Map.ofList[(('-','-'), ['t';'f']); (('-','0'), ['f']); (('-','+'), ['f']);
-                            (('0','-'), ['t']);     (('0','0'), ['t']); (('0','+'), ['f']);
-                            (('+','-'), ['t']);     (('+','0'), ['t']); (('+','+'), ['t';'f'])];;
-
-let andTable = Map.ofList[(('t','f'), ['f']); (('t','t'), ['t']); (('f','t'), ['f']); (('f','f'), ['f'])];;
-let orTable = Map.ofList[(('t','f'), ['t']); (('t','t'), ['t']); (('f','t'), ['t']); (('f','f'), ['f'])];;
-
-let notTable = Map.ofList[(('t', 't'), ['f']); (('f', 't'), ['t'])];;
-
-let paraATable = Map.ofList([(('+', '0'),[' ']); (('-', '0'),[' ']); (('0', '0'),[' '])]);;
-
-let paraBTable = Map.ofList([(('t', '0'),[' ']); (('f', '0'),[' ']);]);;
+    (('0','+'),['f']);(('0','-'),['t']);(('-','+'),['f']);(('+','-'),['t'])]);;
 
 
 
@@ -418,9 +378,7 @@ let nodeMemory = Map.empty<string, Set<Map<string, Set<char>>>>;;
 
 let rec printSignMem (mem:Map<string, Set<Map<string, Set<char>>>>) =
     let startNodeSet = Map.find "q▷"mem
-    Set.map (fun set -> Map.map (fun k v -> (sprintf "%s %A" k v)) set) startNodeSet
-   
-    //Set.map (fun set -> Map.map (fun k v -> (sprintf "%s" k)) set) startNodeSet
+    Set.map (fun set -> Map.map (fun k v -> (sprintf "%s" k)) set) startNodeSet
     
     
     //Set.map (fun set -> Map.map (fun k v -> (sprintf "%s %A" k v)) set) test
@@ -432,7 +390,7 @@ let boolEdge qstart act qslut amem worklist =
     let mutable newMem = amem
     let mutable newWorklist = worklist
     for signMap in (Map.find qstart amem) do
-        if Set.contains 't' (sign_bEval act signMap) then newMem <- newMem.Add(qslut, (Set.add signMap (Map.find qslut newMem))) 
+        if Set.contains 't' (sign_bEval act signMap) then newMem <- Map.add qslut (Set.add signMap (Map.find qslut amem)) amem 
     if (Map.find qslut amem) <> (Map.find qslut newMem) then newWorklist <- qslut::worklist 
     (newMem, newWorklist);;
 
@@ -448,7 +406,7 @@ let assignEdge qstart act qslut amem worklist =
     let arithmetic = arith act
     let mutable newMem = amem
     for signMap in (Map.find qstart amem) do
-        newMem <- newMem.Add(qslut, (Set.add (Map.add identifier (sign_aEval arithmetic signMap) signMap) (Map.find qslut newMem))) 
+        newMem <- newMem.Add(qslut, Set.add(Map.add identifier (sign_aEval arithmetic signMap) signMap) (Map.find qslut amem))
     (newMem, qslut::worklist);;
 
 
@@ -458,8 +416,8 @@ let rec worklistTraversal edges ((amem:Map<string, Set<Map<string, Set<char>>>>)
     | [] -> amem
     | node::tail -> for e in findEdges node edges do 
                         match e with
-                        | (qstart, BExpression(act), qslut)  -> finalMem <- worklistTraversal edges (boolEdge qstart act qslut amem tail)
-                        | (qstart, CExpression(act), qslut)  -> finalMem <- if act = Skip then worklistTraversal edges (skipEdge qstart qslut amem tail) else worklistTraversal edges (assignEdge qstart act qslut amem tail)
+                        | (qstart, BExpression(act), qslut)  -> finalMem <- worklistTraversal edges (boolEdge qstart act qslut finalMem tail)
+                        | (qstart, CExpression(act), qslut)  -> finalMem <- if act = Skip then worklistTraversal edges (skipEdge qstart qslut finalMem tail) else worklistTraversal edges (assignEdge qstart act qslut finalMem tail)
                     finalMem;;
 //let mutable endNode = "";;
 // Walk the programgraph by chosing an edge from the node given as input to the function
@@ -472,10 +430,10 @@ let SignAnalyzer edgelist amem =
 let initializeAmem file edgelist = 
     let mutable amem = Map.empty
     let mutable startSignMem = Map.empty
-    amem <- amem.Add("q◀", Set.empty)
+    amem <- amem.Add("q◀",Set.empty)
     for e in edgelist do
         match e with
-        | (qs,_,_) -> amem <- amem.Add(qs, Set.empty) 
+        | (qs,_,_) -> amem <- amem.Add(qs, Set.empty)
     let lines = File.ReadAllLines(file)
     for line in lines do
         let assignment = line.Split('=')
@@ -499,8 +457,9 @@ printfn "Enter an expression: ";;
 let lexbuf = LexBuffer<_>.FromString (Console.ReadLine());;
 let expression = parse lexbuf;;
 let edgeList = compute expression;;
+printfn "Grammar recognized igen" 
 
-(*
+
 // Interpreter
 printfn "Initialize your variables in this format x:=2;y:=0 ";;
 //let interpretLexbuf = LexBuffer<_>.FromString (Console.ReadLine())
@@ -509,12 +468,12 @@ let initializedMemory = initializeVariables "Interpreter_test.txt";;
 let mem = interpret edgeList "q▷" initializedMemory;;
 let sortedList2 = List.sortBy (fun (x,y) -> x = "status") (Map.toList mem) |> List.rev ;;
 printfn "%s" (printMem endNode (sortedList2))
-*)
+
 
 
 // Sign analysis
 let initializedSignMemory = initializeAmem "sign_analyser_test.txt" edgeList;;
 let signMem = SignAnalyzer edgeList initializedSignMemory;; 
-printSignMem signMem
+//printSignMem signMem
 //printfn "%s" (printMem endNode (Map.toList mem));;
 

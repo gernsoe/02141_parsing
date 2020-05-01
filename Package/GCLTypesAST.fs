@@ -35,7 +35,7 @@ type b =
 
 type C =
   | AssignX of (string * a)
-  | AssignA of (string * a * a)
+  | AssignA of (a * a)
   | Skip
   | Next of (C * C)
   | Iffi of GC

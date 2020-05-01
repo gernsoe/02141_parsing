@@ -3,6 +3,9 @@ node [shape = circle]; q▷;
 node [shape = doublecircle]; q◀; 
 node [shape = circle]
 q▷ -> q1[label = "y:=1"];
-q1 -> q2[label = "x:=1"];
-q2 -> q◀[label = "x:=x+i"];
+q1 -> q2[label = "A[y]:=22"];
+q2 -> q3[label = "(x>0)&!(false)"];
+q3 -> q4[label = "y:=x*y"];
+q4 -> q2[label = "x:=x-1"];
+q2 -> q◀[label = "!(x>0|false)"];
 }
