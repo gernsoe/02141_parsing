@@ -463,6 +463,13 @@ let make_flow (leftSet:Set<Ident>) (rightSet:Set<Ident>)  =
             flow <- flow.Add(right_ident, left_ident)
     flow;;
 
+let condition_flow (leftSet:Set<Ident>) (rightFlow:Flow) =
+    let mutable flow:Flow = Set.empty
+    for left_ident:Ident in leftSet do
+        for right_ident:(Ident * Ident) in rightFlow do
+            flow <- flow.add(fst)
+
+
 let rec fv_a a (identSet:Set<Ident>) =
     match a with
        | N(x) -> Set.union identSet Set.empty
@@ -497,12 +504,12 @@ let rec security_cEval c (identSet:Set<Ident>) =
         | AssignX(s,y) -> make_flow (Set.empty.Add(s)) (fv_a y identSet)
         | AssignA(x,y) ->  make_flow (fv_a x identSet) (fv_a y identSet)
         | Skip -> make_flow(Set.empty) (Set.empty)
-        | Next(c1, c2) -> Set.union (security_cEval c1 identSet) (security_cEval c2 identSet)
+        | Next(c1, c2) -> Set.union (security_cEval c1 identSet) (security_cEval c2 identSet) 
         | Iffi(gc) -> (security_gcEval gc identSet)
         | Dood(gc) -> (security_gcEval gc identSet)
 and security_gcEval gc (identSet:Set<Ident>) =
     match gc with
-        | Condition(b,c) -> make_flow (fv_b b identSet) (security_cEval c identSet)
+        | Condition(b,c) -> Set.union (make_flow (fv_b b identSet) (fv_b b identSet)) (security_cEval c identSet)
         | ElseIfExpr(gc1,gc2) -> Set.union (security_gcEval gc1 identSet) (security_gcEval gc2 identSet)
 
 // ************************************************** Security Analyser end *****************************************************
@@ -528,8 +535,12 @@ printfn "%s" (printMem endNode (sortedList2))
 
 
 // Sign analysis
-let initializedSignMemory = initializeAmem "sign_analyser_test.txt" edgeList;;
-let signMem = SignAnalyzer edgeList initializedSignMemory;; 
+//let initializedSignMemory = initializeAmem "sign_analyser_test.txt" edgeList;;
+//let signMem = SignAnalyzer edgeList initializedSignMemory;; 
 //printSignMem signMem
 //printfn "%s" (printMem endNode (Map.toList mem));;
+
+// Security analyser
+let set1 = security_cEval expression Set.empty
+printfn "The set: %A" set1;;
 
