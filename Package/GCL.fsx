@@ -455,6 +455,9 @@ let initializeVariables file =
 
 type Ident = string
 type Flow = (Ident * Ident) Set
+type SecLevel = string
+type SecLattice = (SecLevel * SecLevel) list
+type SecClass = (Ident*SecLevel) list
 
 let make_flow (leftSet:Set<Ident>) (rightSet:Set<Ident>)  = 
     let mutable flow:Flow = Set.empty
@@ -513,6 +516,12 @@ and security_gcEval gc (identSet:Set<Ident>) =
         | Condition(b,c) -> d <- (Set.union identSet (fv_b b identSet))
                             (security_cEval c d)
         | ElseIfExpr(gc1,gc2) -> Set.union (security_gcEval gc1 identSet) (security_gcEval gc2 d)
+ let mutable allowedFlows:Flow = Set.empty
+let mutable tempFlows:Flow = Set.empty
+let test1A = [("unclassified","classified");("classified","secret");("secret", "top_secret")]
+let test1B = [("x","unclassified");("y","classified");("z", "secret")]
+ let rec allowedFlowForIdent ident (secClass:SecClass) (secLattice:SecLattice) =     match secClass with     | secClass::tail -> for (secLevel1, secLevel2) in secLattice do                             if (secLevel1 = snd secClass || secLevel2 = snd secClass) then tempFlows <- Set.union (tempFlows.Add(ident,fst secClass)) (allowedFlowForIdent ident tail secLattice)                         tempFlows     | _-> Set.empty   let rec allow (secLattice:SecLattice, secClass:SecClass) =     match (secLattice, secClass) with         | (secLattice::secTail, secClass) -> for (ident, secLevel) in secClass do                                                  if (secLevel = fst secLattice) then allowedFlows <- Set.union (allowedFlowForIdent ident secClass (secLattice::secTail)) (allow(secTail, secClass))                                                                                        allowedFlows         | _ -> allowedFlows;; 
+
 
 // ************************************************** Security Analyser end *****************************************************
 
