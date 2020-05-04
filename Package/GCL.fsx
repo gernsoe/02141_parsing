@@ -451,6 +451,62 @@ let initializeVariables file =
     mem;;
 // **************************************************** Sign Analyser end *******************************************************
 
+// ************************************************* Security Analyser start ****************************************************
+
+type Ident = string
+type Flow = (Ident * Ident) Set
+
+let make_flow (leftSet:Set<Ident>) (rightSet:Set<Ident>)  = 
+    let mutable flow:Flow = Set.empty
+    for left_ident:Ident in leftSet do
+        for right_ident:Ident in rightSet do
+            flow <- flow.Add(right_ident, left_ident)
+    flow;;
+
+let rec fv_a a (identSet:Set<Ident>) =
+    match a with
+       | N(x) -> Set.union identSet Set.empty
+       | X(s) -> Set.union (identSet.Add(s)) Set.empty
+       | A(s, x) -> (Set.union (identSet.Add(s)) (fv_a x identSet))
+       | TimesExpr(x,y) -> (Set.union (fv_a x identSet) (fv_a y identSet)) 
+       | DivExpr(x,y) -> (Set.union (fv_a x identSet) (fv_a y identSet))
+       | PlusExpr(x,y) -> (Set.union (fv_a x identSet) (fv_a y identSet)) 
+       | MinusExpr(x,y) -> (Set.union (fv_a x identSet) (fv_a y identSet))
+       | PowExpr(x,y) -> (Set.union (fv_a x identSet) (fv_a y identSet))
+       | UMinusExpr(x) -> Set.union (fv_a x identSet) Set.empty
+       | ParaA(x) -> Set.union (fv_a x identSet) Set.empty
+and fv_b b (identSet:Set<Ident>) = 
+    match b with
+       | True -> Set.union identSet Set.empty
+       | False -> Set.union identSet Set.empty
+       | And1Expr(x,y) ->  (Set.union (fv_b x identSet) (fv_b y identSet))
+       | Or1Expr(x,y) ->  (Set.union (fv_b x identSet) (fv_b y identSet))
+       | And2Expr(x,y) -> (Set.union (fv_b x identSet) (fv_b y identSet))
+       | Or2Expr(x,y) -> (Set.union (fv_b x identSet) (fv_b y identSet))
+       | NotExpr(x) -> Set.union (fv_b x identSet) Set.empty
+       | EqExpr(x,y) -> (Set.union (fv_a x identSet) (fv_a y identSet))
+       | NeqExpr(x,y) -> (Set.union (fv_a x identSet) (fv_a y identSet))
+       | Gt(x,y) -> (Set.union (fv_a x identSet) (fv_a y identSet))
+       | Ge(x,y) -> (Set.union (fv_a x identSet) (fv_a y identSet))
+       | Lt(x,y) -> (Set.union (fv_a x identSet) (fv_a y identSet))
+       | Le(x,y) -> (Set.union (fv_a x identSet) (fv_a y identSet))
+       | ParaB(x) -> Set.union (fv_b x identSet) Set.empty;;
+
+let rec security_cEval c (identSet:Set<Ident>) =
+    match c with 
+        | AssignX(s,y) -> make_flow (Set.empty.Add(s)) (fv_a y identSet)
+        | AssignA(x,y) ->  make_flow (fv_a x identSet) (fv_a y identSet)
+        | Skip -> make_flow(Set.empty) (Set.empty)
+        | Next(c1, c2) -> Set.union (security_cEval c1 identSet) (security_cEval c2 identSet)
+        | Iffi(gc) -> (security_gcEval gc identSet)
+        | Dood(gc) -> (security_gcEval gc identSet)
+and security_gcEval gc (identSet:Set<Ident>) =
+    match gc with
+        | Condition(b,c) -> make_flow (fv_b b identSet) (security_cEval c identSet)
+        | ElseIfExpr(gc1,gc2) -> Set.union (security_gcEval gc1 identSet) (security_gcEval gc2 identSet)
+
+// ************************************************** Security Analyser end *****************************************************
+
 // Start interacting with the user
 // Compiler
 printfn "Enter an expression: ";;
