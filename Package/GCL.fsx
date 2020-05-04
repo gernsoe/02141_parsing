@@ -463,12 +463,11 @@ let make_flow (leftSet:Set<Ident>) (rightSet:Set<Ident>)  =
             flow <- flow.Add(right_ident, left_ident)
     flow;;
 
-let condition_flow (leftSet:Set<Ident>) (rightFlow:Flow) =
-    let mutable flow:Flow = Set.empty
-    for left_ident:Ident in leftSet do
-        for right_ident:(Ident * Ident) in rightFlow do
-            flow <- flow.add(fst)
-
+let secure (actualFlow:Flow) (allowedFlow:Flow) =
+    let mutable secure = "Secure"
+    for flow in actualFlow do
+        if not (Set.contains flow allowedFlow) then secure <- "Not Secure"
+    secure;;
 
 let rec fv_a a (identSet:Set<Ident>) =
     match a with
@@ -499,6 +498,8 @@ and fv_b b (identSet:Set<Ident>) =
        | Le(x,y) -> (Set.union (fv_a x identSet) (fv_a y identSet))
        | ParaB(x) -> Set.union (fv_b x identSet) Set.empty;;
 
+let mutable d = Set<Ident> Set.empty;;
+
 let rec security_cEval c (identSet:Set<Ident>) =
     match c with 
         | AssignX(s,y) -> make_flow (Set.empty.Add(s)) (fv_a y identSet)
@@ -509,8 +510,9 @@ let rec security_cEval c (identSet:Set<Ident>) =
         | Dood(gc) -> (security_gcEval gc identSet)
 and security_gcEval gc (identSet:Set<Ident>) =
     match gc with
-        | Condition(b,c) -> Set.union (make_flow (fv_b b identSet) (fv_b b identSet)) (security_cEval c identSet)
-        | ElseIfExpr(gc1,gc2) -> Set.union (security_gcEval gc1 identSet) (security_gcEval gc2 identSet)
+        | Condition(b,c) -> d <- (Set.union identSet (fv_b b identSet))
+                            (security_cEval c d)
+        | ElseIfExpr(gc1,gc2) -> Set.union (security_gcEval gc1 identSet) (security_gcEval gc2 d)
 
 // ************************************************** Security Analyser end *****************************************************
 
@@ -530,7 +532,7 @@ printfn "Initialize your variables in this format x:=2;y:=0 ";;
 let initializedMemory = initializeVariables "Interpreter_test.txt";;
 let mem = interpret edgeList "q▷" initializedMemory;;
 let sortedList2 = List.sortBy (fun (x,y) -> x = "status") (Map.toList mem) |> List.rev ;;
-printfn "%s" (printMem endNode (sortedList2))
+//printfn "%s" (printMem endNode (sortedList2))
 
 
 
@@ -542,5 +544,6 @@ printfn "%s" (printMem endNode (sortedList2))
 
 // Security analyser
 let set1 = security_cEval expression Set.empty
-printfn "The set: %A" set1;;
+printfn "\nActual: %A" set1;;
+printfn "Result: %s" (secure set1 (make_flow (Set.empty.Add("x")) (Set.empty.Add("x"))));;
 
